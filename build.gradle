@@ -16,7 +16,7 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     antlr 'org.antlr:antlr4:4.13.0'
-    //implementation 'org.antlr:antlr4-runtime:4.13.0' may be needed for runtime
+    implementation 'org.antlr:antlr4-runtime:4.13.0'
     //implementation 'com.squareup:javapoet:1.13.0' may be needed for code generation
 }
 
@@ -27,4 +27,7 @@ test {
 shadowJar {
     archiveBaseName.set('minjc')
     archiveClassifier.set('')
+    manifest {
+        attributes 'Main-Class': 'com.conava.Main'
+    }
 }

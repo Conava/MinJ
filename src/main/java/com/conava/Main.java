@@ -1,17 +1,17 @@
 package com.conava;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-public class Main {
-    public static void main(String[] args) {
-        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-        // to see how IntelliJ IDEA suggests fixing it.
-        System.out.print("Hello and welcome!");
+import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.tree.ParseTree;
+import com.conava.MinJLexer;
+import com.conava.MinJParser;
 
-        for (int i = 1; i <= 5; i++) {
-            //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-            System.out.println("i = " + i);
-        }
+public class Main {
+    public static void main(String[] args) throws Exception {
+        CharStream in = CharStreams.fromPath(java.nio.file.Path.of(args[0]));
+        MinJLexer lexer = new MinJLexer(in);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        MinJParser parser = new MinJParser(tokens);
+        ParseTree tree = parser.program();
+        System.out.println(tree.toStringTree(parser));
     }
 }
