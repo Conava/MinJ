@@ -1,0 +1,30 @@
+//file:noinspection SpellCheckingInspection
+plugins {
+    id 'java'
+    id 'antlr'
+    id("com.gradleup.shadow") version "9.0.0-beta13"
+}
+
+group = 'com.conava'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    antlr 'org.antlr:antlr4:4.13.0'
+    //implementation 'org.antlr:antlr4-runtime:4.13.0' may be needed for runtime
+    //implementation 'com.squareup:javapoet:1.13.0' may be needed for code generation
+}
+
+test {
+    useJUnitPlatform()
+}
+
+shadowJar {
+    archiveBaseName.set('minjc')
+    archiveClassifier.set('')
+}
