@@ -8,26 +8,55 @@ options { language = Java; }
 
 // --- Parser rules ---
 program
-    : stmt* EOF
+    : (statement NEWLINE*)* EOF
     ;
 
-stmt
-    : 'print' STRING
+statement
+    : varDecl
+    | assign
+    | printStmt
+    ;
+
+varDecl
+    : type ID ('=' expr)?
+    ;
+
+type
+    : 'int'
+    | 'String'
+    ;
+
+assign
+    : ID '=' expr
+    ;
+
+printStmt
+    : 'print' expr
+    ;
+
+expr
+    : INT
+    | STRING
+    | ID
     ;
 
 // --- Lexer rules ---
-NUMBER
-    : [0-9]+
-    ;
-
-ID
-    : [a-zA-Z_][a-zA-Z0-9_]*
-    ;
-
-STRING
-    : '"' (~["\\] | '\\' .)* '"'
+NEWLINE
+    : [\r\n]+
     ;
 
 WS
-    : [ \t\r\n]+ -> skip
+    : [ \t]+ -> skip
+    ;
+
+INT
+    : [0-9]+
+    ;
+
+STRING
+    : '"' (~["\r\n])* '"'
+    ;
+
+ID
+    : [a-zA-Z_][a-zA-Z_0-9]*
     ;
