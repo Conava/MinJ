@@ -6,16 +6,24 @@ options { language = Java; }
     package com.conava;
 }
 
-// The only two parser rules:
+// --- Parser rules ---
 program
     : stmt* EOF
     ;
 
 stmt
-    : 'print' STRING ';'?    // a print statement, semicolon optional
+    : 'print' STRING
     ;
 
 // --- Lexer rules ---
+NUMBER
+    : [0-9]+
+    ;
+
+ID
+    : [a-zA-Z_][a-zA-Z0-9_]*
+    ;
+
 STRING
     : '"' (~["\\] | '\\' .)* '"'
     ;
