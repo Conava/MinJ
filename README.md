@@ -1,13 +1,24 @@
 # MinJ Language Interpreter
 
-A simple interpreter for the MinJ toy language, implemented in Java using ANTLR 4. Supports typed declarations (`var`/
-`val`), arithmetic, comparisons, `print` and nested `if`/`elseif`/`else` blocks.
+MinJ is a lightweight interpreter designed to bring a concise, statically typed scripting language to the JVM. Built from the ground up in Java with ANTLRv4 for lexical and syntactic analysis, MinJ provides an accessible platform for experimenting with language design and interpreter implementation. Its clean grammar and modular visitor‑based execution model ensure fast parsing and straightforward extensibility.
+
+Out of the box, MinJ supports mutable (`var`) and immutable (`val`) declarations with sensible defaults for all primitive and reference types, including `int`, `float`, `double`, `boolean`, `char`, and `String`. Programs can perform arithmetic operations, comparisons, and nested control flow with `if`/`elseif`/`else` blocks. The built‑in `print` statement handles literal and variable output, explicitly rendering empty characters as `'\0'` and empty strings as `""`.
+
+MinJ is built using Gradle with the ANTLR plugin and ShadowJar for packaging a standalone fat‑JAR. Simply clone the repository, run `./gradlew clean shadowJar`, and execute your scripts via `java -jar build/libs/minjc-<VERSION>.jar <yourfile>.mj`. A comprehensive CI/CD pipeline on GitHub Actions ensures that every change is validated, tested, and packaged automatically for reliable releases.
 
 ## 📦 Requirements
 
 - JDK 21 (or adjust Gradle toolchain to your installed JDK)
 - Gradle 8.5+
 - Internet access to download ANTLR and Shadow plugin dependencies
+- 
+## 🖥️ IDE Support
+
+For grammar development and live parse tree visualization, it's recommended to use IntelliJ IDEA Ultimate with the ANTLR v4 plugin. This setup provides:
+- Real-time grammar validation and error highlighting
+- Automatic generation of lexer/parser code
+- Live parse tree preview for rapid debugging
+- Syntax-aware editing and refactoring
 
 ## ⚙️ Build & Run
 
