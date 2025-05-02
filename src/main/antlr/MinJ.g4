@@ -17,6 +17,8 @@ statement
     | assign
     | printStmt
     | ifStmt
+    | whileStmt
+    | forStmt
     ;
 
 varDecl
@@ -39,6 +41,15 @@ ifStmt
     : 'if' expr 'then' ':' block
       ( 'elseif' expr 'then' ':' block )*
       ( 'else' ':' block )?
+      END
+    ;
+
+whileStmt
+    : 'while' expr 'do' ':' block END
+    ;
+
+forStmt
+    : 'for'  (varDecl | assign) 'to' expr 'step' assign 'do' ':' block END
     ;
 
 block
@@ -77,6 +88,7 @@ HASH_COMMENT   : '#'  ~[\r\n]*        -> skip ;
 BLOCK_COMMENT  : '/*' .*? '*/'        -> skip ;
 
 // keywords
+END            : 'end' ;
 VAR            : 'var' ;
 VAL            : 'val' ;
 

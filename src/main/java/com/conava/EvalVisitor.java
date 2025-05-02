@@ -1,9 +1,6 @@
 package com.conava;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
 import com.conava.MinJBaseVisitor;
@@ -72,10 +69,25 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             Object left = visit(ctx.expr(0));
             Object right = visit(ctx.expr(1));
             return switch (ctx.op.getText()) {
-                case "*" -> ((Number) left).doubleValue() * ((Number) right).doubleValue();
+                case "+" -> {
+                    if (left instanceof Integer && right instanceof Integer) {
+                        yield (Integer) left + (Integer) right;
+                    }
+                    yield ((Number) left).doubleValue() + ((Number) right).doubleValue();
+                }
+                case "-" -> {
+                    if (left instanceof Integer && right instanceof Integer) {
+                        yield (Integer) left - (Integer) right;
+                    }
+                    yield ((Number) left).doubleValue() - ((Number) right).doubleValue();
+                }
+                case "*" -> {
+                    if (left instanceof Integer && right instanceof Integer) {
+                        yield (Integer) left * (Integer) right;
+                    }
+                    yield ((Number) left).doubleValue() * ((Number) right).doubleValue();
+                }
                 case "/" -> ((Number) left).doubleValue() / ((Number) right).doubleValue();
-                case "+" -> ((Number) left).doubleValue() + ((Number) right).doubleValue();
-                case "-" -> ((Number) left).doubleValue() - ((Number) right).doubleValue();
                 case "<" -> ((Number) left).doubleValue() < ((Number) right).doubleValue();
                 case ">" -> ((Number) left).doubleValue() > ((Number) right).doubleValue();
                 case "<=" -> ((Number) left).doubleValue() <= ((Number) right).doubleValue();
@@ -85,7 +97,6 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                 default -> null;
             };
         }
-        // no operator → delegate to primary
         return visit(ctx.primary());
     }
 
@@ -109,6 +120,46 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         }
         // parenthesized expression
         return visit(ctx.expr());
+    }
+
+    @Override
+    public Object visitWhileStmt(MinJParser.WhileStmtContext ctx) {
+        // evaluate condition and repeat only the block
+        while ((boolean) visit(ctx.expr())) {
+            visit(ctx.block());
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitForStmt(MinJParser.ForStmtContext ctx) {
+        // 1. init variable
+        String varName;
+        if (ctx.varDecl() != null) {
+            MinJParser.VarDeclContext vdc = ctx.varDecl();
+            varName = vdc.ID().getText();
+            visit(vdc);
+        } else {
+            MinJParser.AssignContext init = ctx.assign(0);
+            varName = init.ID().getText();
+            visit(init);
+        }
+
+        // 2. evaluate upper bound
+        Number upper = (Number) visit(ctx.expr());
+
+        // 3. identify step assignment (always last)
+        MinJParser.AssignContext step = ctx.assign().get(ctx.assign().size() - 1);
+
+        // 4. loop while var ≤ bound, then body + step
+        while (true) {
+            Number current = (Number) env.get(varName);  // <-- use env instead of memory
+            boolean cont = (current.doubleValue() <= upper.doubleValue());
+            if (!cont) break;
+            visitBlock(ctx.block());
+            visit(step);
+        }
+        return null;
     }
 
     private Object defaultValue(String typeName) {
