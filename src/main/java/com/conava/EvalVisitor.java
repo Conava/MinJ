@@ -14,14 +14,32 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     public Object visitVarDecl(MinJParser.VarDeclContext ctx) {
         String name = ctx.ID().getText();
         boolean isVal = ctx.VAL() != null;
+
+        // If it’s a val, make sure they provided an initializer
         if (isVal && ctx.expr() == null) {
             throw new IllegalArgumentException("val " + name + " requires an initializer");
         }
-        Object value = ctx.expr() != null ? visit(ctx.expr()) : defaultValue(ctx.type().getText());
+
+        // If they wrote “= expr” then visit that one expr; otherwise give a default
+        Object value = (ctx.expr() != null)
+                ? visit(ctx.expr())
+                : defaultValue(ctx.type().getText());
+
         if (isVal) immutable.add(name);
         env.put(name, value);
         return null;
     }
+
+    @Override
+    public Object visitListLiteral(MinJParser.ListLiteralContext ctx) {
+        List<Object> list = new ArrayList<>();
+        // ctx.expr() here is the list of elements inside [ ... ]
+        for (MinJParser.ExprContext e : ctx.expr()) {
+            list.add(visit(e));
+        }
+        return list;
+    }
+
 
     @Override
     public Object visitAssign(MinJParser.AssignContext ctx) {
@@ -102,6 +120,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitPrimary(MinJParser.PrimaryContext ctx) {
+        // 1) Primitive literals
         if (ctx.INT() != null) return Integer.parseInt(ctx.INT().getText());
         if (ctx.FLOAT_LIT() != null) {
             String t = ctx.FLOAT_LIT().getText();
@@ -111,6 +130,8 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         if (ctx.BOOL_LIT() != null) return Boolean.parseBoolean(ctx.BOOL_LIT().getText());
         if (ctx.CHAR() != null) return unquoteChar(ctx.CHAR());
         if (ctx.STRING() != null) return unquoteString(ctx.STRING());
+
+        // 2) Variable lookup
         if (ctx.ID() != null) {
             String name = ctx.ID().getText();
             if (!env.containsKey(name)) {
@@ -118,17 +139,20 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             }
             return env.get(name);
         }
-        // parenthesized expression
-        return visit(ctx.expr());
-    }
 
-    @Override
-    public Object visitListLiteral(MinJParser.ListLiteralContext ctx) {
-        List<Object> list = new ArrayList<>();
-        for (MinJParser.ExprContext e : ctx.expr()) {
-            list.add(visit(e));
+        // 3) List literal ([...])
+        if (ctx.listLiteral() != null) {
+            return visitListLiteral(ctx.listLiteral());
         }
-        return list;
+
+        // 4) Parenthesized expression
+        if (ctx.LPAREN() != null) {
+            // primary → LPAREN expr RPAREN
+            return visit(ctx.expr());
+        }
+
+        // Should never happen
+        throw new IllegalStateException("Unknown primary: " + ctx.getText());
     }
 
     @Override
@@ -173,17 +197,22 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitForeachStmt(MinJParser.ForeachStmtContext ctx) {
-        String varName = ctx.ID().getText();
-        Object coll = visit(ctx.expr());
+        String loopVar = ctx.ID().getText();
+
+        // Instead of visit(ctx.expr()), grab the raw text of the `in`-expression:
+        String collectionName = ctx.expr().getText();
+        Object coll = env.get(collectionName);
+
         if (!(coll instanceof List<?>)) {
             throw new IllegalArgumentException("Cannot iterate over " + coll);
         }
-        List<?> list = (List<?>) coll;
-        for (Object item : list) {
-            if (immutable.contains(varName)) {
-                throw new IllegalStateException("Cannot reassign val " + varName);
+
+        for (Object item : (List<?>) coll) {
+            if (immutable.contains(loopVar)) {
+                throw new IllegalStateException("Cannot reassign val " + loopVar);
             }
-            env.put(varName, item);
+            env.put(loopVar, item);
+            // visit the block under the `do:`
             visit(ctx.block());
         }
         return null;

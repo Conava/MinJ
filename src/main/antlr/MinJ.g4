@@ -6,10 +6,11 @@ options { language = Java; }
     package com.conava;
 }
 
-// --- Parser rules ---
-
+// === Parser Rules (newline-separated, blank lines allowed) ===
 program
-    : statement* EOF
+    : (statement? NEWLINE)*
+    statement?
+    EOF
     ;
 
 statement
@@ -23,11 +24,11 @@ statement
     ;
 
 varDecl
-    : (type | VAR | VAL) ID ('=' expr)?
+    : (type | VAR | VAL) ID (ASSIGN expr)?
     ;
 
 type
-    : 'int' | 'float' | 'double' | 'boolean' | 'char' | 'String'
+    : INT_TYPE | FLOAT_TYPE | DOUBLE_TYPE | BOOLEAN_TYPE | CHAR_TYPE | STRING_TYPE
     ;
 
 assign
@@ -35,30 +36,30 @@ assign
     ;
 
 printStmt
-    : 'print' expr
+    : PRINT expr
     ;
 
+
 ifStmt
-    : 'if' expr 'then' ':' block
-      ( 'elseif' expr 'then' ':' block )*
-      ( 'else' ':' block )?
-      END
+    : IF expr THEN COLON block
+    (ELSEIF expr THEN COLON block)*
+    (ELSE COLON block)? END
     ;
 
 whileStmt
-    : 'while' expr 'do' ':' block END
+    : WHILE expr DO COLON block END
     ;
 
 forStmt
-    : 'for'  (varDecl | assign) 'to' expr 'step' assign 'do' ':' block END
+    : FOR  (varDecl | assign) TO expr (STEP assign)? DO COLON block END
     ;
 
 foreachStmt
-    : 'foreach' ID 'in' expr 'do' ':' block END
+    : FOREACH ID IN expr DO COLON block END
     ;
 
 block
-    : statement*
+    : (statement? NEWLINE)*
     ;
 
 // Expression with precedence:
@@ -89,36 +90,60 @@ primary
     | listLiteral
     ;
 
-// --- Lexer rules ---
+// === Lexer Rules ===
 
-// skip whitespace & comments
-WS             : [ \t\r\n]+           -> skip ;
-LINE_COMMENT   : '//' ~[\r\n]*        -> skip ;
-HASH_COMMENT   : '#'  ~[\r\n]*        -> skip ;
-BLOCK_COMMENT  : '/*' .*? '*/'        -> skip ;
+NEWLINE      : '\r'? '\n' ;
+WS           : [ \t]+ -> skip ;
 
-// keywords
-END            : 'end' ;
-VAR            : 'var' ;
-VAL            : 'val' ;
+// Comments
+LINE_COMMENT : '//' ~[\r\n]* -> skip ;
+HASH_COMMENT : '#'  ~[\r\n]* -> skip ;
+BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 
-// operators & punctuation
-ASSIGN         : '=' ;
-LT             : '<' ;
-GT             : '>' ;
-LE             : '<=' ;
-GE             : '>=' ;
-EQ             : '==' ;
-NE             : '!=' ;
-LPAREN         : '(' ;
-RPAREN         : ')' ;
-COLON          : ':' ;
+PRINT     : 'print' ;
+IF        : 'if' ;
+THEN      : 'then' ;
+ELSEIF    : 'elseif' ;
+ELSE      : 'else' ;
+WHILE     : 'while' ;
+FOR       : 'for' ;
+FOREACH   : 'foreach' ;
+IN        : 'in' ;
+TO        : 'to' ;
+STEP      : 'step' ;
+DO        : 'do' ;
+END       : 'end' ;
+VAR       : 'var' ;
+VAL       : 'val' ;
 
-// literals & identifiers
-BOOL_LIT       : 'true' | 'false' ;
-CHAR           : '\'' (~['\r\n])* '\'' ;
-FLOAT_LIT      : [0-9]+ '.' [0-9]+ [fF] ;
-DOUBLE_LIT     : [0-9]+ '.' [0-9]+ ;
-INT            : [0-9]+ ;
-STRING         : '"' (~["\r\n])* '"' ;
-ID             : [a-zA-Z_][a-zA-Z_0-9]* ;
+// Types
+INT_TYPE     : 'int' ;
+FLOAT_TYPE   : 'float' ;
+DOUBLE_TYPE  : 'double' ;
+BOOLEAN_TYPE : 'boolean' ;
+CHAR_TYPE    : 'char' ;
+STRING_TYPE  : 'String' ;
+
+// Operators & Punctuation
+ASSIGN    : '=' ;
+LT        : '<' ;
+GT        : '>' ;
+LE        : '<=' ;
+GE        : '>=' ;
+EQ        : '==' ;
+NE        : '!=' ;
+LPAREN    : '(' ;
+RPAREN    : ')' ;
+LBRACK    : '[' ;
+RBRACK    : ']' ;
+COMMA     : ',' ;
+COLON     : ':' ;
+
+// Literals & Identifier
+BOOL_LIT  : 'true' | 'false' ;
+CHAR      : '\'' (~['\r\n\\] | '\\' .) '\'' ;
+STRING    : '"' (~["\r\n\\] | '\\' .)* '"' ;
+FLOAT_LIT : [0-9]+ '.' [0-9]+ [fF] ;
+DOUBLE_LIT: [0-9]+ '.' [0-9]+ ([eE][+-]?[0-9]+)? ;
+INT       : [0-9]+ ;
+ID        : [a-zA-Z_] [a-zA-Z_0-9]* ;
