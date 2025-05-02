@@ -45,8 +45,9 @@ jobs:
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v${{ env.VERSION }}
           release_name: Release v${{ env.VERSION }}
           draft: false
@@ -54,8 +55,9 @@ jobs:
 
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release/minjc-${{ env.VERSION }}.zip
           asset_name: minjc-${{ env.VERSION }}.zip
