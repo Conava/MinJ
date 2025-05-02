@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   push:
-    # Match branches like release-v0.1.0 or release-v0.1.0-Alpha
+    # any branch starting with release-v
     branches:
       - 'release-v*'
 
@@ -15,8 +15,8 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Extract full version from branch name
-        # e.g. GITHUB_REF_NAME=release-v0.1.0-Alpha → VERSION=0.1.0-Alpha
         run: |
+          # e.g. branch=release-v0.1.0-Alpha → VERSION=0.1.0-Alpha
           echo "VERSION=${GITHUB_REF_NAME#release-v}" >> $GITHUB_ENV
 
       - name: Set up JDK 21
@@ -34,18 +34,18 @@ jobs:
       - name: Prepare release package
         run: |
           mkdir release
-          # Copy & rename your shadow JAR to include the full version
-          cp build/libs/minjc-${VERSION}*.jar release/minjc-${VERSION}.jar
-          cp -r examples            release/
-          cp README.md              release/
+          # pick up whichever JAR was built and rename it
+          JAR=$(ls build/libs/*.jar | head -n1)
+          cp "$JAR" "release/minjc-${VERSION}.jar"
+          cp -r examples        release/
+          cp README.md          release/
           cd release
-          zip -r minjc-${VERSION}.zip .
+          zip -r "minjc-${VERSION}.zip" .
 
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         with:
-          # Tag it v0.1.0-Alpha (whatever the branch suffix is)
           tag_name: v${{ env.VERSION }}
           release_name: Release v${{ env.VERSION }}
           draft: false
