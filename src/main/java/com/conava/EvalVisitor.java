@@ -123,6 +123,15 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitListLiteral(MinJParser.ListLiteralContext ctx) {
+        List<Object> list = new ArrayList<>();
+        for (MinJParser.ExprContext e : ctx.expr()) {
+            list.add(visit(e));
+        }
+        return list;
+    }
+
+    @Override
     public Object visitWhileStmt(MinJParser.WhileStmtContext ctx) {
         // evaluate condition and repeat only the block
         while ((boolean) visit(ctx.expr())) {
@@ -158,6 +167,24 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             if (!cont) break;
             visitBlock(ctx.block());
             visit(step);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitForeachStmt(MinJParser.ForeachStmtContext ctx) {
+        String varName = ctx.ID().getText();
+        Object coll = visit(ctx.expr());
+        if (!(coll instanceof List<?>)) {
+            throw new IllegalArgumentException("Cannot iterate over " + coll);
+        }
+        List<?> list = (List<?>) coll;
+        for (Object item : list) {
+            if (immutable.contains(varName)) {
+                throw new IllegalStateException("Cannot reassign val " + varName);
+            }
+            env.put(varName, item);
+            visit(ctx.block());
         }
         return null;
     }

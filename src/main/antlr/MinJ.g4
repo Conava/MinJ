@@ -19,6 +19,7 @@ statement
     | ifStmt
     | whileStmt
     | forStmt
+    | foreachStmt
     ;
 
 varDecl
@@ -52,6 +53,10 @@ forStmt
     : 'for'  (varDecl | assign) 'to' expr 'step' assign 'do' ':' block END
     ;
 
+foreachStmt
+    : 'foreach' ID 'in' expr 'do' ':' block END
+    ;
+
 block
     : statement*
     ;
@@ -68,6 +73,10 @@ expr
     | primary
     ;
 
+listLiteral
+    : '[' (expr (',' expr)*)? ']'
+    ;
+
 primary
     : INT
     | FLOAT_LIT
@@ -77,6 +86,7 @@ primary
     | BOOL_LIT
     | ID
     | LPAREN expr RPAREN
+    | listLiteral
     ;
 
 // --- Lexer rules ---

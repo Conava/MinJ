@@ -1,0 +1,21 @@
+// Declare a list of integers and iterate over it
+var nums = [1, 2, 3, 4, 5]
+print "Numbers:"
+foreach n in nums do:
+    print n
+end
+
+// Sum the elements using foreach
+var sum = 0
+foreach n in nums do:
+    sum = sum + n
+end
+print "Sum:"
+print sum
+
+// Declare a list of strings and print each
+var names = ["Alice", "Bob", "Charlie"]
+print "Names:"
+foreach name in names do:
+    print name
+end
