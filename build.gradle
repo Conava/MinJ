@@ -1,4 +1,3 @@
-//file:noinspection SpellCheckingInspection
 plugins {
     id 'java'
     id 'antlr'
@@ -15,10 +14,16 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    antlr 'org.antlr:antlr4:4.13.0'
-    implementation 'org.antlr:antlr4-runtime:4.13.0'
+    antlr "org.antlr:antlr4:4.13.0"               // ANTLR tool for codegen
+    implementation "org.antlr:antlr4-runtime:4.13.0"  // ANTLR runtime for parser
     //implementation 'com.squareup:javapoet:1.13.0' may be needed for code generation
 }
+
+tasks.named('generateGrammarSource', AntlrTask) {
+    arguments += ['-visitor']
+}
+
+sourceSets.main.java.srcDirs += layout.buildDirectory.dir('generated-src/antlr/main/java')
 
 test {
     useJUnitPlatform()

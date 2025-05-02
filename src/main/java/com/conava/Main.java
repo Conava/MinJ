@@ -12,6 +12,7 @@ public class Main {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MinJParser parser = new MinJParser(tokens);
         ParseTree tree = parser.program();
-        System.out.println(tree.toStringTree(parser));
+        EvalVisitor visitor = new EvalVisitor();
+        visitor.visit(tree);
     }
 }
