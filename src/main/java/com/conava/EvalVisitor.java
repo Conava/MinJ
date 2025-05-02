@@ -105,6 +105,12 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                     }
                     yield ((Number) left).doubleValue() * ((Number) right).doubleValue();
                 }
+                case "%"  -> {
+                    if (left instanceof Integer && right instanceof Integer) {
+                        yield (Integer) left % (Integer) right;
+                    }
+                    yield ((Number) left).doubleValue() % ((Number) right).doubleValue();
+                }
                 case "/" -> ((Number) left).doubleValue() / ((Number) right).doubleValue();
                 case "<" -> ((Number) left).doubleValue() < ((Number) right).doubleValue();
                 case ">" -> ((Number) left).doubleValue() > ((Number) right).doubleValue();

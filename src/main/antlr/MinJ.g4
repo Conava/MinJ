@@ -69,6 +69,7 @@ block
 // 4. primary (literals, IDs, parenthesis)
 expr
     : expr op=('*'|'/') expr
+    | expr op=MOD expr
     | expr op=('+'|'-') expr
     | expr op=(LT | GT | LE | GE | EQ | NE) expr
     | primary
@@ -132,6 +133,7 @@ LE        : '<=' ;
 GE        : '>=' ;
 EQ        : '==' ;
 NE        : '!=' ;
+MOD       : '%' ;
 LPAREN    : '(' ;
 RPAREN    : ')' ;
 LBRACK    : '[' ;
