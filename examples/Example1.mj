@@ -1,3 +1,9 @@
 print "Hello World"
 print "Hello MinJ"
 print "It works!"
+
+int num = 20
+String text = "Hello World"
+
+print num
+print text

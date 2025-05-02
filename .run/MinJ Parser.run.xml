@@ -4,7 +4,7 @@
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="com.conava.Main" />
     <module name="MinJ.main" />
-    <option name="PROGRAM_PARAMETERS" value="examples/Example1.mj" />
+    <option name="PROGRAM_PARAMETERS" value="examples/Example2.mj" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

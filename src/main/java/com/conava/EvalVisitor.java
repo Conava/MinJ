@@ -1,7 +1,9 @@
 package com.conava;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
 import com.conava.MinJBaseVisitor;
@@ -9,55 +11,84 @@ import com.conava.MinJParser;
 
 /**
  * Visitor that evaluates a MinJ parse tree by executing declarations, assignments,
- * and print statements. Maintains a simple environment mapping variable names to values.
+ * and print statements. Supports typed literals and var/val semantics.
  */
 public class EvalVisitor extends MinJBaseVisitor<Object> {
     private final Map<String, Object> env = new HashMap<>();
+    private final Set<String> immutable = new HashSet<>();
 
     /**
-     * Handles variable declaration: assigns default or initialized value.
+     * Handle `type|var|val ID (= expr)?`
      */
     @Override
     public Object visitVarDecl(MinJParser.VarDeclContext ctx) {
         String name = ctx.ID().getText();
-        Object value = (ctx.expr() != null)
-                ? visit(ctx.expr())
-                : defaultValue(ctx.type().getText());
+        boolean isVal = ctx.VAL() != null;
+        if (isVal && ctx.expr() == null) {
+            throw new IllegalArgumentException("val " + name + " requires an initializer");
+        }
+
+        Object value;
+        if (ctx.expr() != null) {
+            value = visit(ctx.expr());
+        } else {
+            String typeName = ctx.type().getText();
+            value = defaultValue(typeName);
+        }
+
+        if (isVal) {
+            immutable.add(name);
+        }
         store(name, value);
         return null;
     }
 
     /**
-     * Handles assignment to an existing or new variable.
+     * Prevent reassigning a `val`.
      */
     @Override
     public Object visitAssign(MinJParser.AssignContext ctx) {
         String name = ctx.ID().getText();
+        if (immutable.contains(name)) {
+            throw new IllegalStateException("Cannot reassign val " + name);
+        }
         Object value = visit(ctx.expr());
         store(name, value);
         return null;
     }
 
     /**
-     * Evaluates the expression and prints its result to standard output.
+     * Print the evaluated expression.
      */
     @Override
     public Object visitPrintStmt(MinJParser.PrintStmtContext ctx) {
-        Object result = visit(ctx.expr());
-        System.out.println(result);
+        System.out.println(visit(ctx.expr()));
         return null;
     }
 
     /**
-     * Evaluates an expression: integer literal, string literal, or variable lookup.
+     * Handle all literal forms and variable lookup.
      */
     @Override
     public Object visitExpr(MinJParser.ExprContext ctx) {
         if (ctx.INT() != null) {
             return Integer.parseInt(ctx.INT().getText());
         }
+        if (ctx.FLOAT_LIT() != null) {
+            String txt = ctx.FLOAT_LIT().getText();
+            return Float.parseFloat(txt.substring(0, txt.length() - 1));
+        }
+        if (ctx.DOUBLE_LIT() != null) {
+            return Double.parseDouble(ctx.DOUBLE_LIT().getText());
+        }
+        if (ctx.BOOL_LIT() != null) {
+            return Boolean.parseBoolean(ctx.BOOL_LIT().getText());
+        }
+        if (ctx.CHAR() != null) {
+            return unquoteChar(ctx.CHAR());
+        }
         if (ctx.STRING() != null) {
-            return unquote(ctx.STRING());
+            return unquoteString(ctx.STRING());
         }
         // Variable reference
         String name = ctx.ID().getText();
@@ -67,25 +98,31 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return env.get(name);
     }
 
-    /**
-     * Stores a value in the environment.
-     */
     private void store(String name, Object value) {
         env.put(name, value);
     }
 
     /**
-     * Returns the default value for a type: 0 for int, empty string otherwise.
+     * Default values per type name.
      */
     private Object defaultValue(String typeName) {
-        return "int".equals(typeName) ? 0 : "";
+        return switch (typeName) {
+            case "int" -> 0;
+            case "float" -> 0.0f;
+            case "double" -> 0.0;
+            case "boolean" -> false;
+            case "char" -> '\0';
+            default -> "";
+        };
     }
 
-    /**
-     * Removes surrounding quotes from a string token.
-     */
-    private String unquote(TerminalNode stringToken) {
-        String text = stringToken.getText();
-        return text.substring(1, text.length() - 1);
+    private String unquoteString(TerminalNode node) {
+        String t = node.getText();
+        return t.substring(1, t.length() - 1);
+    }
+
+    private Character unquoteChar(TerminalNode node) {
+        String t = node.getText(); // e.g. `'a'`
+        return t.charAt(1);
     }
 }
