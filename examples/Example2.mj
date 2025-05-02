@@ -43,3 +43,12 @@ double pi = 3.14159
 print sum         // 5
 print ratio       // 2.5
 print pi          // 3.14159
+
+// 4. If-else statement
+int a = 10
+int b = 20
+
+if a > b then:
+    print "a is greater than b"
+else:
+    print "b is greater than or equal to a"

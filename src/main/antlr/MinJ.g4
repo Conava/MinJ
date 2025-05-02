@@ -16,6 +16,7 @@ statement
     : varDecl
     | assign
     | printStmt
+    | ifStmt
     ;
 
 varDecl
@@ -23,23 +24,40 @@ varDecl
     ;
 
 type
-    : 'int'
-    | 'float'
-    | 'double'
-    | 'boolean'
-    | 'char'
-    | 'String'
+    : 'int' | 'float' | 'double' | 'boolean' | 'char' | 'String'
     ;
 
 assign
-    : ID '=' expr
+    : ID ASSIGN expr
     ;
 
 printStmt
     : 'print' expr
     ;
 
+ifStmt
+    : 'if' expr 'then' ':' block
+      ( 'elseif' expr 'then' ':' block )*
+      ( 'else' ':' block )?
+    ;
+
+block
+    : statement*
+    ;
+
+// Expression with precedence:
+// 1. *, /
+// 2. +, -
+// 3. <, >, <=, >=, ==, !=
+// 4. primary (literals, IDs, parenthesis)
 expr
+    : expr op=('*'|'/') expr
+    | expr op=('+'|'-') expr
+    | expr op=(LT | GT | LE | GE | EQ | NE) expr
+    | primary
+    ;
+
+primary
     : INT
     | FLOAT_LIT
     | DOUBLE_LIT
@@ -47,59 +65,38 @@ expr
     | CHAR
     | BOOL_LIT
     | ID
+    | LPAREN expr RPAREN
     ;
 
 // --- Lexer rules ---
 
-LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
-    ;
+// skip whitespace & comments
+WS             : [ \t\r\n]+           -> skip ;
+LINE_COMMENT   : '//' ~[\r\n]*        -> skip ;
+HASH_COMMENT   : '#'  ~[\r\n]*        -> skip ;
+BLOCK_COMMENT  : '/*' .*? '*/'        -> skip ;
 
-HASH_COMMENT
-    : '#' ~[\r\n]* -> skip
-    ;
+// keywords
+VAR            : 'var' ;
+VAL            : 'val' ;
 
-BLOCK_COMMENT
-    : '/*' .*? '*/' -> skip
-    ;
+// operators & punctuation
+ASSIGN         : '=' ;
+LT             : '<' ;
+GT             : '>' ;
+LE             : '<=' ;
+GE             : '>=' ;
+EQ             : '==' ;
+NE             : '!=' ;
+LPAREN         : '(' ;
+RPAREN         : ')' ;
+COLON          : ':' ;
 
-WS
-    : [ \t\r\n]+ -> skip
-    ;
-
-VAR
-    : 'var'
-    ;
-
-VAL
-    : 'val'
-    ;
-
-BOOL_LIT
-    : 'true'
-    | 'false'
-    ;
-
-CHAR
-    : '\'' (~['\r\n])* '\''
-    ;
-
-FLOAT_LIT
-    : [0-9]+ '.' [0-9]+ [fF]
-    ;
-
-DOUBLE_LIT
-    : [0-9]+ '.' [0-9]+
-    ;
-
-INT
-    : [0-9]+
-    ;
-
-STRING
-    : '"' (~["\r\n])* '"'
-    ;
-
-ID
-    : [a-zA-Z_][a-zA-Z_0-9]*
-    ;
+// literals & identifiers
+BOOL_LIT       : 'true' | 'false' ;
+CHAR           : '\'' (~['\r\n])* '\'' ;
+FLOAT_LIT      : [0-9]+ '.' [0-9]+ [fF] ;
+DOUBLE_LIT     : [0-9]+ '.' [0-9]+ ;
+INT            : [0-9]+ ;
+STRING         : '"' (~["\r\n])* '"' ;
+ID             : [a-zA-Z_][a-zA-Z_0-9]* ;
