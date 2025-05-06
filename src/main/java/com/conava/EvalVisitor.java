@@ -9,6 +9,77 @@ import com.conava.MinJParser;
 public class EvalVisitor extends MinJBaseVisitor<Object> {
     private final Map<String, Object> env = new HashMap<>();
     private final Set<String> immutable = new HashSet<>();
+    private final Map<String, MinJParser.MethodDeclContext> methodDefs = new HashMap<>();
+
+
+    @Override
+    public Object visitProgram(MinJParser.ProgramContext ctx) {
+        // ctx.topLevelDecl() is a List<TopLevelDeclContext>
+        for (MinJParser.TopLevelDeclContext tld : ctx.topLevelDecl()) {
+            visit(tld);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitTopLevelDecl(MinJParser.TopLevelDeclContext ctx) {
+        if (ctx.statement() != null) {
+            return visit(ctx.statement());
+        } else if (ctx.classDecl() != null) {
+            return visit(ctx.classDecl());
+        } else if (ctx.methodDecl() != null) {
+            return visit(ctx.methodDecl());
+        }
+        return null;
+    }
+
+
+    @Override
+    public Object visitClassDecl(MinJParser.ClassDeclContext ctx) {
+        // You might later collect a ClassNode, but for now we just execute any statements
+        for (MinJParser.StatementContext stmt : ctx.classBody().statement()) {
+            visit(stmt);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitMethodDecl(MinJParser.MethodDeclContext ctx) {
+        String name = ctx.ID().getText();              // single ID for the name
+        List<String> params = new ArrayList<>();
+        if (ctx.paramList() != null) {
+            for (TerminalNode id : ctx.paramList().ID()) {
+                params.add(id.getText());
+            }
+        }
+        methodDefs.put(name, ctx);
+        return null;
+    }
+
+    @Override
+    public Object visitCallExpr(MinJParser.CallExprContext ctx) {
+        String name = ctx.ID().getText();
+        MinJParser.MethodDeclContext decl = methodDefs.get(name);
+        if (decl == null) {
+            throw new IllegalStateException("Unknown method: " + name);
+        }
+
+        // evaluate arguments
+        List<Object> args = new ArrayList<>();
+        if (ctx.argList() != null) {
+            for (MinJParser.ExprContext e : ctx.argList().expr()) {
+                args.add(visit(e));
+            }
+        }
+
+        // invoke the method, ignoring any return value (methods are void for now)
+        invokeMethod(name, decl, args);
+
+        // if you want calls to return something later, return it here
+        return null;
+    }
+
+
 
     @Override
     public Object visitVarDecl(MinJParser.VarDeclContext ctx) {
@@ -105,7 +176,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                     }
                     yield ((Number) left).doubleValue() * ((Number) right).doubleValue();
                 }
-                case "%"  -> {
+                case "%" -> {
                     if (left instanceof Integer && right instanceof Integer) {
                         yield (Integer) left % (Integer) right;
                     }
@@ -243,4 +314,31 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     private Character unquoteChar(TerminalNode node) {
         return node.getText().charAt(1);
     }
+
+    private Object invokeMethod(String name,
+                                MinJParser.MethodDeclContext decl,
+                                List<Object> args) {
+        // save and clear current env
+        Map<String,Object> oldEnv = new HashMap<>(env);
+        Set<String> oldImm = new HashSet<>(immutable);
+        env.clear(); immutable.clear();
+
+        // bind parameters
+        List<String> params = decl.paramList()!=null
+                ? decl.paramList().ID().stream().map(TerminalNode::getText).toList()
+                : List.of();
+        for (int i = 0; i < params.size(); i++) {
+            env.put(params.get(i), args.get(i));
+        }
+
+        // execute body
+        visitBlock(decl.block());
+
+        // restore outer env
+        env.clear(); env.putAll(oldEnv);
+        immutable.clear(); immutable.addAll(oldImm);
+
+        return null;
+    }
+
 }

@@ -8,9 +8,35 @@ options { language = Java; }
 
 // === Parser Rules (newline-separated, blank lines allowed) ===
 program
-    : (statement? NEWLINE)*
-    statement?
+    : (topLevelDecl? NEWLINE)*
+    topLevelDecl?
     EOF
+    ;
+
+topLevelDecl
+    : classDecl
+    | methodDecl
+    | statement
+    ;
+
+classDecl
+    : CLASS ID COLON NEWLINE
+    classBody
+    END
+    ;
+
+classBody
+    : ((statement | methodDecl)? NEWLINE)*
+    ;
+
+methodDecl
+    :(METHOD | FUNC) ID LPAREN paramList? RPAREN COLON
+    block
+    END
+    ;
+
+paramList
+    : ID (COMMA ID)*
     ;
 
 statement
@@ -21,6 +47,7 @@ statement
     | whileStmt
     | forStmt
     | foreachStmt
+    | callExpr
     ;
 
 varDecl
@@ -79,8 +106,17 @@ listLiteral
     : '[' (expr (',' expr)*)? ']'
     ;
 
+argList
+    : expr (COMMA expr)*
+    ;
+
+callExpr
+    : ID LPAREN argList? RPAREN
+    ;
+
 primary
-    : INT
+    : callExpr
+    | INT
     | FLOAT_LIT
     | DOUBLE_LIT
     | STRING
@@ -101,6 +137,9 @@ LINE_COMMENT : '//' ~[\r\n]* -> skip ;
 HASH_COMMENT : '#'  ~[\r\n]* -> skip ;
 BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 
+CLASS     : 'class' ;
+METHOD    : 'method' ;
+FUNC      : 'func' ;
 PRINT     : 'print' ;
 IF        : 'if' ;
 THEN      : 'then' ;
