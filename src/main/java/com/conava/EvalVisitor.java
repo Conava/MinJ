@@ -448,50 +448,63 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
        ──────────────────────────────────────────────── */
     @Override
     public Object visitForStmt(MinJParser.ForStmtContext ctx) {
-
-        /* 1 ░ initialise loop variable (varDecl | assign) */
+        // ─── 1 · initialise the loop variable ───────────────────
+        Cell cell;
         String varName;
+
         if (ctx.varDecl() != null) {
-            visit(ctx.varDecl());                          // executes binding
-            varName = ctx.varDecl().idList().ID(0).getText();
+            // user wrote: for var i = …
+            MinJParser.VarDeclContext vdc = ctx.varDecl();
+            varName = vdc.idList().ID(0).getText();
+            visit(vdc);  // this will call bindIds(ids, rhs, false, false, true)
+            cell = resolveCell(varName);
         } else {
-            MinJParser.AssignContext init = ctx.assign().getFirst();
-            visit(init);
+            // user wrote: for i = …
+            MinJParser.AssignContext init = ctx.assign().get(0);
             varName = init.idList().ID(0).getText();
+
+            List<TerminalNode> ids = init.idList().ID();
+            Object initVal = visit(init.expr());
+
+            // implicit declarations are always dynamic (no static type) and mutable
+            bindIds(
+                    ids,
+                    initVal,
+                    /* isReassign= */ false,
+                    /* isDynamic=   */ true,
+                    /* mutable=     */ true
+            );
+            cell = resolveCell(varName);
         }
 
-        /* 2 ░ upper-bound */
+        // ─── 2 · upper bound ────────────────────────────────────
         Number upper = (Number) visit(ctx.expr());
 
-        /* 3 ░ optional step */
+        // ─── 3 · optional STEP ──────────────────────────────────
         MinJParser.AssignContext stepCtx = null;
         if (ctx.assign().size() > 1) stepCtx = ctx.assign().get(1);
-        else if (ctx.assign().size() == 1 && ctx.varDecl() != null)
-            stepCtx = ctx.assign().getFirst();
+        else if (ctx.assign().size() == 1
+                && ctx.varDecl() != null) stepCtx = ctx.assign().get(0);
 
-        /* 4 ░ loop */
+        // ─── 4 · loop body ─────────────────────────────────────
         while (true) {
-
-            Cell c = resolveCell(varName);           // current boxed value
-            Number cur = (Number) c.value;
+            Number cur = (Number) cell.value;
             if (cur.doubleValue() > upper.doubleValue()) break;
 
-            visitBlock(ctx.block());                      // body
+            visitBlock(ctx.block());
 
-            /* advance counter */
-            if (stepCtx != null) {                        // user-supplied
-                visit(stepCtx);                           // re-binds varName
-            } else {                                      // implicit +1
-                Number next = (cur instanceof Integer)
-                        ? cur.intValue() + 1
-                        : cur.doubleValue() + 1.0;
-                /* overwrite entry with fresh Cell (same typing info) */
-                env.put(varName, cellOf(next,
-                        c.declaredType,
-                        c.mutable,
-                        c.dynamic));
+            if (stepCtx != null) {
+                visit(stepCtx);  // this will call bindIds(ids, rhs, true, …)
+            } else {
+                // default step of +1
+                if (cur instanceof Integer) {
+                    cell.value = cur.intValue() + 1;
+                } else {
+                    cell.value = cur.doubleValue() + 1.0;
+                }
             }
         }
+
         return null;
     }
 
@@ -698,11 +711,33 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         }
     }
 
-    record Cell(Object value,
-                Class<?> declaredType,  // never null
-                boolean mutable,        // false for val
-                boolean dynamic) {
+    // at top of EvalVisitor:
+    private static class Cell {
+        /**
+         * the current value, mutable at runtime
+         */
+        Object value;
+        /**
+         * the declared‐at‐creation type (for static vs dynamic checks)
+         */
+        final Class<?> declaredType;
+        /**
+         * true if this name may be reassigned at all
+         */
+        final boolean mutable;
+        /**
+         * true if this cell’s type was inferred rather than declared
+         */
+        final boolean dynamic;
+
+        Cell(Object value, Class<?> declaredType, boolean mutable, boolean dynamic) {
+            this.value = value;
+            this.declaredType = declaredType;
+            this.mutable = mutable;
+            this.dynamic = dynamic;
+        }
     }
+
 
     private static Cell cellOf(Object v, Class<?> t, boolean mutable, boolean dynamic) {
         return new Cell(v, t, mutable, dynamic);

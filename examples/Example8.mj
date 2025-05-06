@@ -1,23 +1,27 @@
-// Example 8: Recursive functions
-
+// ───── Recursive factorial using “return” ─────────────────────────
 func factorial(n):
     if n <= 1 then:
-        return 1           // if/then may be extended to allow returns
+        return 1
     else:
-        // note: MinJ currently doesn’t support `return`, so
-        // you’d implement via throwing a value or using globals.
-        print "Error: return not supported yet"
+        // n · (n-1)!  ➜  recursive call
+        return n * factorial(n - 1)
     end
 end
 
-// As a workaround, compute via a loop:
+
+// ───── Iterative version (for comparison) ─────────────────────────
 func factLoop(n):
     var result = 1
     for i = 1 to n do:
         result = result * i
     end
-    print "factLoop(" + n + ") = " + result
+    return result
 end
 
-factLoop(5)
-// Expected: factLoop(5) = 120
+
+// ───── Top-level driver code ──────────────────────────────────────
+var x = 5
+var rec = factorial(x)      // recursive
+var itr = factLoop(x)       // iterative
+print "factorial(" + x + ") = " + rec
+print "factLoop("  + x + ") = " + itr

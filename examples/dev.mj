@@ -1,8 +1,27 @@
-func divide(a, b):
-    var q = a / b
-    var r = a % b
-    return q, r
+// ───── Recursive factorial using “return” ─────────────────────────
+func factorial(n):
+    if n <= 1 then:
+        return 1
+    else:
+        // n · (n-1)!  ➜  recursive call
+        return n * factorial(n - 1)
+    end
 end
 
-var quot, rem = divide(23, 5)
-print "23 / 5 => " + quot + " remainder " + rem
+
+// ───── Iterative version (for comparison) ─────────────────────────
+func factLoop(n):
+    var result = 1
+    for i = 1 to n do:
+        result = result * i
+    end
+    return result
+end
+
+
+// ───── Top-level driver code ──────────────────────────────────────
+var x = 5
+var rec = factorial(x)      // recursive
+var itr = factLoop(x)       // iterative
+print "factorial(" + x + ") = " + rec
+print "factLoop("  + x + ") = " + itr
