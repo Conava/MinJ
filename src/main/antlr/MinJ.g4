@@ -6,7 +6,8 @@ options { language = Java; }
     package com.conava;
 }
 
-// === Parser Rules (newline-separated, blank lines allowed) ===
+// === Parser Rules ===
+
 program
     : (topLevelDecl? NEWLINE)*
     topLevelDecl?
@@ -55,8 +56,16 @@ statement
     | whileStmt
     | forStmt
     | foreachStmt
-    | callStmt
     | returnStmt
+    | exprStmt
+    ;
+
+exprStmt
+    : expr
+    ;
+
+callExpr
+    : ID LPAREN argList? RPAREN
     ;
 
 varDecl
@@ -125,15 +134,6 @@ listLiteral
 
 argList
     : expr (COMMA expr)*
-    ;
-
-callExpr
-    : ID LPAREN argList? RPAREN
-    ;
-
-callStmt
-    : callExpr              # GlobalCall
-    | primary.callExpr      # InstanceCall
     ;
 
 primary

@@ -2,6 +2,7 @@ package com.conava;
 
 import java.util.*;
 
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import com.conava.MinJBaseVisitor;
 import com.conava.MinJParser;
@@ -82,6 +83,13 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitExprStmt(MinJParser.ExprStmtContext ctx) {
+        // just evaluate the expression for its side‐effects (e.g. method calls)
+        return visit(ctx.expr());
+    }
+
+
+    @Override
     public Object visitTopLevelDecl(MinJParser.TopLevelDeclContext ctx) {
         if (ctx.statement() != null) {
             return visit(ctx.statement());
@@ -95,26 +103,56 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitClassDecl(MinJParser.ClassDeclContext ctx) {
-        String cn = ctx.ID().getText();
+        String className = ctx.ID().getText();
         ClassDef def = new ClassDef();
-        classTable.put(cn, def);
+        classTable.put(className, def);
 
+        // enter class‐context
+        boolean oldInClass = inClass;
+        ClassDef oldCurrent = currentClass;
         inClass = true;
         currentClass = def;
-        for (var child : ctx.classBody().children) {
+
+        for (ParseTree child : ctx.classBody().children) {
             if (child instanceof MinJParser.FieldDeclContext f) {
-                String name = f.varDecl().idList().ID(0).getText();
-                def.fields.put(name, cellOf(null, Object.class, true, true));
+                // instead of binding into env, bind directly into def.fields
+                MinJParser.VarDeclContext vdc = f.varDecl();
+                List<TerminalNode> ids = vdc.idList().ID();
+                // compute the initializer value or default
+                Object initVal = vdc.ASSIGN() != null
+                        ? visit(vdc.expr())
+                        : defaultValue(
+                        vdc.type() != null
+                                ? tokenToClass(vdc.type().getText())
+                                : Object.class
+                );
+                // declared type and mutability/dynamic flags
+                Class<?> declared = vdc.type() != null
+                        ? tokenToClass(vdc.type().getText())
+                        : (initVal == null ? Object.class : initVal.getClass());
+                boolean mutable = vdc.VAL() == null;
+                boolean dynamic = vdc.VAR() != null;
+
+                for (TerminalNode id : ids) {
+                    def.fields.put(
+                            id.getText(),
+                            cellOf(initVal, declared, mutable, dynamic)
+                    );
+                }
             } else if (child instanceof MinJParser.MethodDeclContext m) {
                 def.methods.put(m.ID().getText(), m);
             } else if (child instanceof MinJParser.StatementContext s) {
-                visit(s); // static block
+                // static initializer in a class
+                visit(s);
             }
         }
-        inClass = false;
-        currentClass = null;
+
+        // restore
+        inClass = oldInClass;
+        currentClass = oldCurrent;
         return null;
     }
+
 
     @Override
     public Object visitMethodDecl(MinJParser.MethodDeclContext ctx) {
@@ -164,11 +202,37 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitAssign(MinJParser.AssignContext ctx) {
-        bindIds(ctx.idList().ID(),
-                visit(ctx.expr()),
+        // we only support single‐name LHS for field assignments
+        TerminalNode idTok = ctx.idList().ID(0);
+        String name = idTok.getText();
+        Object newValue = visit(ctx.expr());
+
+        // if we’re inside a method, and “name” resolves to a 'this'-field, update it
+        if (inMethod && ctx.idList().ID().size() == 1) {
+            try {
+                Cell cell = resolveCell(name);        // finds locals → this.fields → globals
+                // if it’s a field, its declaredType/dynamic were set at construction
+                if (cell.declaredType.isAssignableFrom(newValue.getClass()) || cell.dynamic) {
+                    if (!cell.mutable) {
+                        throw new IllegalStateException("Cannot reassign val " + name);
+                    }
+                    cell.value = newValue;
+                    return null;
+                }
+                // else fall‐through to general bindIds
+            } catch (IllegalStateException e) {
+                // not a field (or undefined) → we'll let bindIds throw if really unknown
+            }
+        }
+
+        // otherwise it’s a “var x = …” or reassign to a local/global
+        bindIds(
+                ctx.idList().ID(),
+                newValue,
                 /*reassign=*/true,
-                /*dynamic ignored*/false,
-                /*mutable*/true);
+                /*dynamic=*/false,
+                /*mutable=*/true
+        );
         return null;
     }
 
@@ -346,37 +410,6 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return invokeMethod(name, decl, args);   // returns List or single value
     }
 
-
-    // 1) Global function calls:     callStmt → callExpr  #GlobalCall
-    @Override
-    public Object visitGlobalCall(MinJParser.GlobalCallContext ctx) {
-        // delegate to your existing visitCallExpr logic
-        return visitCallExpr(ctx.callExpr());
-    }
-
-    @Override
-    public Object visitInstanceCall(MinJParser.InstanceCallContext ctx) {
-        // receiver is the primary
-        Obj receiver = (Obj) visit(ctx.primary());
-
-        // unpack the sub‐callExpr
-        MinJParser.CallExprContext call = ctx.callExpr();
-
-        // method name and args live there:
-        String methodName = call.ID().getText();            // or .ID(0).getText() if there's ambiguity
-        MinJParser.MethodDeclContext mdecl = receiver.def.methods.get(methodName);
-        if (mdecl == null) throw new IllegalStateException("No method " + methodName);
-
-        // collect arguments
-        List<Object> args = new ArrayList<>();
-        if (call.argList() != null) {
-            for (var e : call.argList().expr()) {
-                args.add(visit(e));
-            }
-        }
-
-        return invokeMethod(methodName, mdecl, args, receiver);
-    }
 
     @Override
     public Object visitReturnStmt(MinJParser.ReturnStmtContext ctx) {
