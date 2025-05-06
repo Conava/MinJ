@@ -1,24 +1,8 @@
-// --- class definition ---
-class FizzBuzz:
-    /*
-     print Fizz/Buzz/FizzBuzz or the number from 1 to n
-    */
-    method fizzbuzz(n):
-        for i = 1 to n step i = i +1 do:
-            // divisible by 15 → FizzBuzz
-            if (i % 15) == 0 then:
-                print "FizzBuzz"
-            elseif (i % 3) == 0 then:
-                print "Fizz"
-            elseif (i % 5) == 0 then:
-                print "Buzz"
-            else:
-                print i
-            end
-        end
-    end
+func divide(a, b):
+    var q = a / b
+    var r = a % b
+    return q, r
 end
 
-# --- stray top‐level code (no main() present) ---
-var fb = new FizzBuzz()
-fb.fizzbuzz(100)
+var quot, rem = divide(23, 5)
+print "23 / 5 => " + quot + " remainder " + rem

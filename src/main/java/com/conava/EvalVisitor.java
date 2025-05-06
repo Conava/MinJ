@@ -7,7 +7,7 @@ import com.conava.MinJBaseVisitor;
 import com.conava.MinJParser;
 
 public class EvalVisitor extends MinJBaseVisitor<Object> {
-    private final Map<String, Object> env = new HashMap<>();
+    private Map<String, Object> env = new HashMap<>();
     private final Set<String> immutable = new HashSet<>();
     private final Map<String, MinJParser.MethodDeclContext> methodDefs = new HashMap<>();
 
@@ -21,6 +21,23 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
     private final Map<String, ClassDef> classTable = new HashMap<>();
+
+    // helper: assign multiple ids
+    private void bindIds(List<TerminalNode> ids, Object value, boolean isMut) {
+        if (ids.size() == 1) {
+            env.put(ids.getFirst().getText(), value);
+            if (!isMut) immutable.add(ids.getFirst().getText());
+            return;
+        }
+        if (!(value instanceof List<?> list) || list.size() != ids.size())
+            throw new IllegalStateException("Expected " + ids.size() +
+                    " return values, got " + value);
+        for (int i = 0; i < ids.size(); i++) {
+            env.put(ids.get(i).getText(), list.get(i));
+            if (!isMut) immutable.add(ids.get(i).getText());
+        }
+    }
+
 
     private boolean inClass = false;
     private boolean inMethod = false;
@@ -56,7 +73,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
         for (var child : ctx.classBody().children) {
             if (child instanceof MinJParser.FieldDeclContext f) {
-                String name = f.varDecl().ID().getText();
+                String name = f.varDecl().idList().ID(0).getText();
                 def.fields.put(name, /* default null for now */ null);
             } else if (child instanceof MinJParser.MethodDeclContext m) {
                 String name = m.ID().getText();
@@ -84,29 +101,32 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitVarDecl(MinJParser.VarDeclContext ctx) {
-        String name = ctx.ID().getText();
+        List<TerminalNode> ids = ctx.idList().ID();
         boolean isVal = ctx.VAL() != null;
+        boolean mutable = !isVal;
 
-        // If it’s a val, make sure they provided an initializer
-        if (isVal && ctx.expr() == null) {
-            throw new IllegalArgumentException("val " + name + " requires an initializer");
+        Object rhs = null;
+        if (ctx.ASSIGN() != null) {
+            rhs = visit(ctx.expr());
+        } else {
+            // no initializer → default per first declared type (or 0)
+            String t = ctx.type() != null ? ctx.type().getText() : "int";
+            rhs = defaultValue(t);
         }
 
-        // If they wrote “= expr” then visit that one expr; otherwise give a default
-        Object value = (ctx.expr() != null)
-                ? visit(ctx.expr())
-                : defaultValue(ctx.type().getText());
-
-        if (!inClass && !inMethod) {          // global scope
-            globals.put(name, value);
-        } else if (inClass && !inMethod) {     // a field in class body
-            currentClass.fields.put(name, value);
-        } else {                               // local inside a method
-            env.put(name, value);
-        }
+        // bind in correct scope
+        Map<String, Object> target =
+                (!inClass && !inMethod) ? globals :
+                        (inClass && !inMethod) ? currentClass.fields :
+                                env;
+        Map<String, Object> oldEnv = env; // temp swap if needed
+        if (target != env) env = target;  // reuse bindIds helper
+        bindIds(ids, rhs, mutable);
+        if (target != oldEnv) env = oldEnv;
 
         return null;
     }
+
 
     @Override
     public Object visitListLiteral(MinJParser.ListLiteralContext ctx) {
@@ -121,14 +141,20 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitAssign(MinJParser.AssignContext ctx) {
-        String name = ctx.ID().getText();
-        if (immutable.contains(name)) {
-            throw new IllegalStateException("Cannot reassign val " + name);
+        List<TerminalNode> ids = ctx.idList().ID();
+        Object rhs = visit(ctx.expr());
+
+        // immutability check
+        for (TerminalNode idTok : ids) {
+            String id = idTok.getText();
+            if (immutable.contains(id)) {
+                throw new IllegalStateException("Cannot reassign val " + id);
+            }
         }
-        Object value = visit(ctx.expr());
-        env.put(name, value);
+        bindIds(ids, rhs, true);  // always mutable in re-assignment
         return null;
     }
+
 
     @Override
     public Object visitPrintStmt(MinJParser.PrintStmtContext ctx) {
@@ -166,11 +192,18 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             Object right = visit(ctx.expr(1));
             return switch (ctx.op.getText()) {
                 case "+" -> {
+                    if (left instanceof String || right instanceof String ||
+                            left instanceof Character || right instanceof Character)
+                    {
+                        yield String.valueOf(left) + String.valueOf(right);
+                    }
+
                     if (left instanceof Integer && right instanceof Integer) {
                         yield (Integer) left + (Integer) right;
                     }
                     yield ((Number) left).doubleValue() + ((Number) right).doubleValue();
                 }
+
                 case "-" -> {
                     if (left instanceof Integer && right instanceof Integer) {
                         yield (Integer) left - (Integer) right;
@@ -270,6 +303,26 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return invokeMethod(name, decl, args);
     }
 
+    // === Primary-level function call  ID '(' argList? ')'  ===
+    @Override
+    public Object visitCallExprPrimary(MinJParser.CallExprPrimaryContext ctx) {
+        // exactly the same handling as in visitCallExpr
+        String name = ctx.ID().getText();
+        MinJParser.MethodDeclContext decl = globalMethods.get(name);
+        if (decl == null) {
+            throw new IllegalStateException("Unknown function: " + name);
+        }
+
+        List<Object> args = new ArrayList<>();
+        if (ctx.argList() != null) {
+            for (MinJParser.ExprContext e : ctx.argList().expr()) {
+                args.add(visit(e));
+            }
+        }
+        return invokeMethod(name, decl, args);   // returns List or single value
+    }
+
+
     // 1) Global function calls:     callStmt → callExpr  #GlobalCall
     @Override
     public Object visitGlobalCall(MinJParser.GlobalCallContext ctx) {
@@ -299,6 +352,18 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         }
 
         return invokeMethod(methodName, mdecl, args, receiver);
+    }
+
+    @Override
+    public Object visitReturnStmt(MinJParser.ReturnStmtContext ctx) {
+        List<Object> vals = new ArrayList<>();
+        if (ctx.exprList() != null) {
+            for (MinJParser.ExprContext e : ctx.exprList().expr()) {
+                vals.add(visit(e));
+            }
+        }
+        // no value → empty list = “void”
+        throw new ReturnSignal(vals);
     }
 
 
@@ -380,11 +445,11 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         String varName;
         if (ctx.varDecl() != null) {
             MinJParser.VarDeclContext vdc = ctx.varDecl();
-            varName = vdc.ID().getText();
+            varName = vdc.idList().ID(0).getText();
             visit(vdc);
         } else {
-            MinJParser.AssignContext init = ctx.assign().get(0);
-            varName = init.ID().getText();
+            MinJParser.AssignContext init = ctx.assign().getFirst();
+            varName = init.idList().ID(0).getText();
             visit(init);
         }
 
@@ -506,7 +571,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                                 MinJParser.MethodDeclContext decl,
                                 List<Object> args,
                                 Obj receiver) {
-        // save/clear old state
+        // save
         Map<String, Object> oldEnv = new HashMap<>(env);
         Set<String> oldImm = new HashSet<>(immutable);
         boolean wasInMethod = inMethod;
@@ -514,15 +579,12 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         env.clear();
         immutable.clear();
         inMethod = true;
-
-        // bind 'this' for instance, skip for globals
-        if (receiver != null) {
-            env.put("this", receiver);
-        }
+        if (receiver != null) env.put("this", receiver);
 
         // bind parameters
         if (decl.paramList() != null) {
-            List<String> params = decl.paramList().ID().stream()
+            List<String> params = decl.paramList().ID()
+                    .stream()
                     .map(TerminalNode::getText)
                     .toList();
             for (int i = 0; i < params.size(); i++) {
@@ -530,8 +592,19 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             }
         }
 
-        // execute the method body
-        visitBlock(decl.block());
+        // execute + capture return
+        Object result = null;
+        try {
+            visitBlock(decl.block());
+        } catch (ReturnSignal r) {
+            if (r.values.isEmpty()) {
+                result = null;
+            } else if (r.values.size() == 1) {
+                result = r.values.getFirst();
+            } else {
+                result = r.values;   // multi-value returns as List<Object>
+            }
+        }
 
         // restore
         env.clear();
@@ -539,14 +612,24 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         immutable.clear();
         immutable.addAll(oldImm);
         inMethod = wasInMethod;
-
-        return null;
+        return result;
     }
 
+    /**
+     * Convenience wrapper for global functions.
+     */
     private Object invokeMethod(String name,
                                 MinJParser.MethodDeclContext decl,
                                 List<Object> args) {
         return invokeMethod(name, decl, args, null);
     }
 
+
+    private static class ReturnSignal extends RuntimeException {
+        final List<Object> values;
+
+        ReturnSignal(List<Object> v) {
+            values = v;
+        }
+    }
 }

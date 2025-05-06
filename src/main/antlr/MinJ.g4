@@ -43,6 +43,10 @@ paramList
     : ID (COMMA ID)*
     ;
 
+returnStmt
+    : RETURN exprList
+    ;
+
 statement
     : varDecl
     | assign
@@ -52,10 +56,15 @@ statement
     | forStmt
     | foreachStmt
     | callStmt
+    | returnStmt
     ;
 
 varDecl
-    : (type | VAR | VAL) ID (ASSIGN expr)?
+    : (type | VAR | VAL) idList (ASSIGN expr)?
+    ;
+
+idList
+    : ID (COMMA ID)*
     ;
 
 type
@@ -63,7 +72,7 @@ type
     ;
 
 assign
-    : ID ASSIGN expr
+    : idList ASSIGN expr
     ;
 
 printStmt
@@ -91,6 +100,10 @@ foreachStmt
 
 block
     : (statement? NEWLINE)*
+    ;
+
+exprList
+    : expr (COMMA expr)*
     ;
 
 // Expression with precedence:
@@ -148,32 +161,33 @@ LINE_COMMENT : '//' ~[\r\n]* -> skip ;
 HASH_COMMENT : '#'  ~[\r\n]* -> skip ;
 BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 
-CLASS     : 'class' ;
-METHOD    : 'method' ;
-FUNC      : 'func' ;
-PRINT     : 'print' ;
-IF        : 'if' ;
-THEN      : 'then' ;
-ELSEIF    : 'elseif' ;
-ELSE      : 'else' ;
-WHILE     : 'while' ;
-FOR       : 'for' ;
-FOREACH   : 'foreach' ;
-IN        : 'in' ;
-TO        : 'to' ;
-STEP      : 'step' ;
-DO        : 'do' ;
-END       : 'end' ;
-VAR       : 'var' ;
-VAL       : 'val' ;
+RETURN      : 'return' ;
+CLASS       : 'class' ;
+METHOD      : 'method' ;
+FUNC        : 'func' ;
+PRINT       : 'print' ;
+IF          : 'if' ;
+THEN        : 'then' ;
+ELSEIF      : 'elseif' ;
+ELSE        : 'else' ;
+WHILE       : 'while' ;
+FOR         : 'for' ;
+FOREACH     : 'foreach' ;
+IN          : 'in' ;
+TO          : 'to' ;
+STEP        : 'step' ;
+DO          : 'do' ;
+END         : 'end' ;
+VAR         : 'var' ;
+VAL         : 'val' ;
 
 // Types
-INT_TYPE     : 'int' ;
-FLOAT_TYPE   : 'float' ;
-DOUBLE_TYPE  : 'double' ;
-BOOLEAN_TYPE : 'boolean' ;
-CHAR_TYPE    : 'char' ;
-STRING_TYPE  : 'String' ;
+INT_TYPE        : 'int' ;
+FLOAT_TYPE      : 'float' ;
+DOUBLE_TYPE     : 'double' ;
+BOOLEAN_TYPE    : 'boolean' ;
+CHAR_TYPE       : 'char' ;
+STRING_TYPE     : 'String' ;
 
 // Operators & Punctuation
 ASSIGN    : '=' ;
