@@ -1,0 +1,18 @@
+// Example 6: Lists and `foreach`
+
+var nums = [1, 2, 3, 4, 5]
+print "Numbers:"
+foreach n in nums do:
+    print n
+end
+
+// Sum the elements
+var total = 0
+foreach n in nums do:
+    total = total + n
+end
+print "Sum = " + total
+
+// Empty list edge‐case
+var empty = []
+print "Empty size = " + empty

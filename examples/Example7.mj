@@ -1,0 +1,12 @@
+// Example 7: Defining and calling global methods
+
+func greet(name):
+    print "Hello, " + name + "!"
+end
+
+// Top-level (stray) code calls the function:
+greet("Alice")
+greet("Bob")
+
+// Uncommenting last call before definition should error
+// sayBye("Charlie")

@@ -1,0 +1,34 @@
+// Example 10: More complex class with constructor & state
+
+class BankAccount:
+    var balance = 0.0
+
+    // constructor‐style `method init` (called manually here)
+    method init(start):
+        balance = start
+    end
+
+    method deposit(amount):
+        balance = balance + amount
+    end
+
+    method withdraw(amount):
+        if amount > balance then:
+            print "Insufficient funds"
+        else:
+            balance = balance - amount
+        end
+    end
+
+    method printBalance():
+        print "Balance = " + balance
+    end
+end
+
+// Simulate account activity
+var acct = new BankAccount()
+acct.init(100)      // starting with $100
+acct.deposit(50)
+acct.withdraw(30)
+acct.withdraw(150)  // should print “Insufficient funds”
+acct.printBalance() // Balance = 120.0

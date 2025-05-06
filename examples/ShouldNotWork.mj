@@ -1,0 +1,19 @@
+// 11.1 Missing colon after `if`
+// if x > 0 then
+//     print "ok"
+// end
+
+// 11.2 Reassigning an immutable `val`
+// val x = 5
+// x = 10
+
+// 11.3 Call undefined function
+// foo(1,2,3)
+
+// 11.4 Wrong loop syntax
+// for i = 1 to 5 do print i end
+
+// 11.5 Incorrect indentation (if using indent-based blocks)
+// class A:
+// print "oops"
+// end

@@ -1,67 +1,15 @@
-// 1. Typed declarations without initializer → default values
-int i
-float f
-double d
-boolean flag
-char c
-String s
+// Example 2: Variables, `var` vs `val`, and default initialization
 
-print i       // 0
-print f       // 0.0
-print d       // 0.0
-print flag    // false
-print c       // '\0' (empty char)
-print s       // "" (empty string)
+// `var` can be reassigned; `val` is immutable.
+var a = 10
+val b = "MinJ"    // b cannot be reassigned
 
+print "a = " + a
+print "b = " + b
 
-// 2. Mutable (`var`) vs immutable (`val`) declarations
-var x = 42
-print x      // 42
+// Reassigning `a` works:
+a = 20
+print "a now = " + a
 
-x = 100      // allowed
-print x      // 100
-
-val y = 3.14
-print y      // 3.14
-
-// y = 2.71  // error: cannot reassign val y
-
-
-// 3. All literal forms
-String greeting = "Hello, MinJ!"
-print greeting     // Hello, MinJ!
-
-char letter = 'Z'
-print letter       // Z
-
-boolean ready = true
-print ready        // true
-
-int sum = 5
-float ratio = 2.5f
-double pi = 3.14159
-print sum         // 5
-print ratio       // 2.5
-print pi          // 3.14159
-
-// 4. If-else statement
-int a = 10
-int b = 20
-
-if a > b then:
-    print "a is greater than b"
-else:
-    print "b is greater than or equal to a"
-end
-
-// 5. While loop
-int count = 0
-while count < 5 do:
-    print count
-    count = count + 1
-end
-
-// 6. For loop
-for int i = 10 to 15 step i = i + 1 do:
-    print i
-end
+// Uncommenting the next line should error: cannot reassign `val`
+// b = "oops"

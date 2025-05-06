@@ -1,0 +1,14 @@
+// Example 4: Conditional logic
+
+var score = 85
+
+if score >= 90 then:
+    print "Grade: A"
+elseif score >= 80 then:
+    print "Grade: B"
+else:
+    print "Grade: C or below"
+end
+
+// Edge-case: missing `end` should error
+// if score < 0 then: print "Invalid"

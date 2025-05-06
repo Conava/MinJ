@@ -1,0 +1,19 @@
+// Example 5.1: `while` loop
+var i = 1
+while i <= 3 do:
+    print "while i = " + i
+    i = i + 1
+end
+
+// Example 5.2: `for` with default step (+1)
+for j = 1 to 3 do:
+    print "for j = " + j
+end
+
+// Example 5.3: `for` with custom step
+for k = 0 to 10 step k = k + 2 do:
+    print "step k = " + k
+end
+
+// Example 5.4: improper `step` syntax should error
+// for k = 1 to 5 step k == k + 1 do: print k end

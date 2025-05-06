@@ -1,0 +1,23 @@
+// Example 8: Recursive functions
+
+func factorial(n):
+    if n <= 1 then:
+        return 1           // if/then may be extended to allow returns
+    else:
+        // note: MinJ currently doesn’t support `return`, so
+        // you’d implement via throwing a value or using globals.
+        print "Error: return not supported yet"
+    end
+end
+
+// As a workaround, compute via a loop:
+func factLoop(n):
+    var result = 1
+    for i = 1 to n do:
+        result = result * i
+    end
+    print "factLoop(" + n + ") = " + result
+end
+
+factLoop(5)
+// Expected: factLoop(5) = 120

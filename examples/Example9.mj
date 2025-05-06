@@ -1,0 +1,23 @@
+// Example 9: Defining a class with private fields & methods
+
+class Counter:
+    var value = 0            // private field
+
+    // private method; only callable via an instance
+    method inc():
+        value = value + 1
+    end
+
+    method get():
+        print "Counter = " + value
+    end
+end
+
+// Top-level code
+var c = new Counter()
+c.inc()
+c.inc()
+c.get()     // should print Counter = 2
+
+// Direct field access is illegal:
+// print c.value      // error: undefined or private

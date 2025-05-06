@@ -1,15 +1,24 @@
-method fizzbuzz():
-    for i = 0 to 100 step i = i + 1 do:
-        if i % 15 == 0 then:
-            print "FizzBuzz"
-        elseif i % 5 == 0then:
-            print "Buzz"
-        elseif i % 3 == 0 then:
-            print "Fizz"
-        else:
-            print i
+// --- class definition ---
+class FizzBuzz:
+    /*
+     print Fizz/Buzz/FizzBuzz or the number from 1 to n
+    */
+    method fizzbuzz(n):
+        for i = 1 to n step i = i +1 do:
+            // divisible by 15 → FizzBuzz
+            if (i % 15) == 0 then:
+                print "FizzBuzz"
+            elseif (i % 3) == 0 then:
+                print "Fizz"
+            elseif (i % 5) == 0 then:
+                print "Buzz"
+            else:
+                print i
+            end
         end
     end
 end
 
-fizzbuzz()
+# --- stray top‐level code (no main() present) ---
+var fb = new FizzBuzz()
+fb.fizzbuzz(100)
