@@ -83,13 +83,6 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitExprStmt(MinJParser.ExprStmtContext ctx) {
-        // just evaluate the expression for its side‐effects (e.g. method calls)
-        return visit(ctx.expr());
-    }
-
-
-    @Override
     public Object visitTopLevelDecl(MinJParser.TopLevelDeclContext ctx) {
         if (ctx.statement() != null) {
             return visit(ctx.statement());
@@ -372,23 +365,9 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitCallExpr(MinJParser.CallExprContext ctx) {
-        String name = ctx.ID().getText();
-        MinJParser.MethodDeclContext decl = globalMethods.get(name);
-        if (decl == null) {
-            throw new IllegalStateException("Unknown function: " + name);
-        }
-
-        // evaluate arguments…
-        List<Object> args = new ArrayList<>();
-        if (ctx.argList() != null) {
-            for (var e : ctx.argList().expr()) {
-                args.add(visit(e));
-            }
-        }
-
-        // **Pass name, decl, args** in the right order**
-        return invokeMethod(name, decl, args);
+    public Object visitExprStmt(MinJParser.ExprStmtContext ctx) {
+        // evaluate the expression for side‐effects (method calls, etc)
+        return visit(ctx.expr());
     }
 
     // === Primary-level function call  ID '(' argList? ')'  ===
@@ -519,7 +498,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         else if (ctx.assign().size() == 1
                 && ctx.varDecl() != null) stepCtx = ctx.assign().get(0);
 
-        // ─── 4 · loop body ─────────────────────────────────────
+        /* ─── 4 · loop body ───────────────────────────────────── */
         while (true) {
             Number cur = (Number) cell.value;
             if (cur.doubleValue() > upper.doubleValue()) break;
@@ -527,9 +506,10 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             visitBlock(ctx.block());
 
             if (stepCtx != null) {
-                visit(stepCtx);  // this will call bindIds(ids, rhs, true, …)
+                // compute the new value directly and assign it into the same Cell
+                cell.value = visit(stepCtx.expr());
             } else {
-                // default step of +1
+                // default +1
                 if (cur instanceof Integer) {
                     cell.value = cur.intValue() + 1;
                 } else {
@@ -537,6 +517,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                 }
             }
         }
+
 
         return null;
     }

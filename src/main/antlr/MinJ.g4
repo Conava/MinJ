@@ -64,10 +64,6 @@ exprStmt
     : expr
     ;
 
-callExpr
-    : ID LPAREN argList? RPAREN
-    ;
-
 varDecl
     : (type | VAR | VAL) idList (ASSIGN expr)?
     ;
@@ -137,7 +133,9 @@ argList
     ;
 
 primary
-    : NEW   ID LPAREN RPAREN                                # NewExpr
+    : NEW ID LPAREN RPAREN                                  # NewExpr
+    | ID LPAREN argList? RPAREN                             # CallExprPrimary
+    | primary DOT ID LPAREN argList? RPAREN                 # DotCallExpr
     | INT                                                   # IntLiteral
     | FLOAT_LIT                                             # FloatLiteral
     | DOUBLE_LIT                                            # DoubleLiteral
@@ -145,8 +143,6 @@ primary
     | CHAR                                                  # CharLiteral
     | BOOL_LIT                                              # BoolLiteral
     | ID                                                    # VarReference
-    | ID LPAREN argList? RPAREN                             # CallExprPrimary
-    | primary DOT ID LPAREN argList? RPAREN                 # DotCallExpr
     | LPAREN expr RPAREN                                    # ParenExpr
     | listLiteral                                           # ListExpr
     ;
