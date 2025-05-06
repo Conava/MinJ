@@ -222,7 +222,15 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                     }
                     yield ((Number) left).doubleValue() % ((Number) right).doubleValue();
                 }
-                case "/" -> ((Number) left).doubleValue() / ((Number) right).doubleValue();
+                case "/" -> {
+                    // pure-integer division keeps int semantics
+                    if (left instanceof Integer && right instanceof Integer) {
+                        yield (Integer) left / (Integer) right;     // 23 / 5  ➜ 4
+                    }
+                    // anything else → floating-point
+                    yield ((Number) left).doubleValue() / ((Number) right).doubleValue();
+                }
+
                 case "<" -> ((Number) left).doubleValue() < ((Number) right).doubleValue();
                 case ">" -> ((Number) left).doubleValue() > ((Number) right).doubleValue();
                 case "<=" -> ((Number) left).doubleValue() <= ((Number) right).doubleValue();
