@@ -26,7 +26,11 @@ classDecl
     ;
 
 classBody
-    : ((statement | methodDecl)? NEWLINE)*
+    : ((fieldDecl | methodDecl | statement)? NEWLINE)*
+    ;
+
+fieldDecl
+    : varDecl
     ;
 
 methodDecl
@@ -47,7 +51,7 @@ statement
     | whileStmt
     | forStmt
     | foreachStmt
-    | callExpr
+    | callStmt
     ;
 
 varDecl
@@ -114,17 +118,24 @@ callExpr
     : ID LPAREN argList? RPAREN
     ;
 
+callStmt
+    : callExpr              # GlobalCall
+    | primary.callExpr      # InstanceCall
+    ;
+
 primary
-    : callExpr
-    | INT
-    | FLOAT_LIT
-    | DOUBLE_LIT
-    | STRING
-    | CHAR
-    | BOOL_LIT
-    | ID
-    | LPAREN expr RPAREN
-    | listLiteral
+    : NEW   ID LPAREN RPAREN                                # NewExpr
+    | INT                                                   # IntLiteral
+    | FLOAT_LIT                                             # FloatLiteral
+    | DOUBLE_LIT                                            # DoubleLiteral
+    | STRING                                                # StringLiteral
+    | CHAR                                                  # CharLiteral
+    | BOOL_LIT                                              # BoolLiteral
+    | ID                                                    # VarReference
+    | ID LPAREN argList? RPAREN                             # CallExprPrimary
+    | primary DOT ID LPAREN argList? RPAREN                 # DotCallExpr
+    | LPAREN expr RPAREN                                    # ParenExpr
+    | listLiteral                                           # ListExpr
     ;
 
 // === Lexer Rules ===
@@ -179,6 +190,8 @@ LBRACK    : '[' ;
 RBRACK    : ']' ;
 COMMA     : ',' ;
 COLON     : ':' ;
+NEW       : 'new' ;
+DOT       : '.' ;
 
 // Literals & Identifier
 BOOL_LIT  : 'true' | 'false' ;
