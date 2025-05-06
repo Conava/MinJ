@@ -1,0 +1,60 @@
+// ─────────────────────────────────────────────────────────────
+//  Mutability & Type-safety self-test for MinJ
+//  ------------------------------------------------------------
+//  • plain  int / String  variables must keep the declared type
+//  • var   may change its type and value freely
+//  • val   is a one-assignment constant (re-assignment forbidden)
+// ─────────────────────────────────────────────────────────────
+
+
+// 1)  var mutable *and* dynamic-typed
+var any = 10
+print "any starts as int:          " + any
+
+any = 20                          // still an int → OK
+print "any reassigned int:         " + any
+
+any = "now a String!"             // type change allowed for var
+print "any after type change:      " + any
+print "--------------------------------------------"
+
+
+// 2)  explicit  int  mutable but must stay an int
+int n = 5
+print "n starts as int:            " + n
+
+n = 42                            // OK: still an int
+print "n after int reassignment:   " + n
+
+// ✄——————————————————————————————
+// Uncomment to see the type-safety error:
+//
+// n = "oops"          // ERROR: cannot store a String in int
+// ───────────────────────────────────────────────────────────
+print "--------------------------------------------"
+
+
+// 3)  explicit  String mutable but must stay a String
+String msg = "hello"
+print "msg starts as String:       " + msg
+
+msg = "world"                     // OK
+print "msg after reassignment:     " + msg
+
+// ✄——————————————————————————————
+// Uncomment to trigger a type error:
+//
+// msg = 123            // ERROR: cannot store int in String
+// ───────────────────────────────────────────────────────────
+print "--------------------------------------------"
+
+
+// 4)  val immutable constant (single assignment only)
+val PI = 3.14159
+print "PI constant:                " + PI
+
+// ✄——————————————————————————————
+// Uncomment to trigger the immutability error:
+//
+// PI = 3.0            // ERROR: cannot reassign a val
+// ───────────────────────────────────────────────────────────

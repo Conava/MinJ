@@ -7,35 +7,63 @@ import com.conava.MinJBaseVisitor;
 import com.conava.MinJParser;
 
 public class EvalVisitor extends MinJBaseVisitor<Object> {
-    private Map<String, Object> env = new HashMap<>();
-    private final Set<String> immutable = new HashSet<>();
+    private Map<String, Cell> env = new HashMap<>();
+    private Set<String> immutable = new HashSet<>();
     private final Map<String, MinJParser.MethodDeclContext> methodDefs = new HashMap<>();
 
     // === visibility tables ===
-    private final Map<String, Object> globals = new HashMap<>();                      // public vars
+    private final Map<String, Cell> globals = new HashMap<>();
     private final Map<String, MinJParser.MethodDeclContext> globalMethods = new HashMap<>(); // public funcs
 
-    static class ClassDef {
-        final Map<String, Object> fields = new HashMap<>();  // private
-        final Map<String, MinJParser.MethodDeclContext> methods = new HashMap<>(); // private
-    }
 
     private final Map<String, ClassDef> classTable = new HashMap<>();
 
-    // helper: assign multiple ids
-    private void bindIds(List<TerminalNode> ids, Object value, boolean isMut) {
-        if (ids.size() == 1) {
-            env.put(ids.getFirst().getText(), value);
-            if (!isMut) immutable.add(ids.getFirst().getText());
-            return;
-        }
-        if (!(value instanceof List<?> list) || list.size() != ids.size())
-            throw new IllegalStateException("Expected " + ids.size() +
-                    " return values, got " + value);
+    private void bindIds(List<TerminalNode> ids,
+                         Object rhs,
+                         boolean isReassign,
+                         boolean isDynamic,
+                         boolean mutable) {
+
+        List<?> vals = ids.size() == 1 ? List.of(rhs) : (List<?>) rhs;
+
+        if (vals.size() != ids.size())
+            throw new IllegalStateException(
+                    "Expected " + ids.size() + " values, got " + vals.size());
+
         for (int i = 0; i < ids.size(); i++) {
-            env.put(ids.get(i).getText(), list.get(i));
-            if (!isMut) immutable.add(ids.get(i).getText());
+            String id = ids.get(i).getText();
+            Object v = vals.get(i);
+            Class<?> t = v.getClass();
+
+            if (isReassign) {
+                Cell old = resolveCell(id);
+                if (!old.mutable)
+                    throw new IllegalStateException("Cannot reassign val " + id);
+                if (!old.dynamic && !old.declaredType.isAssignableFrom(t))
+                    throw new IllegalStateException("Type mismatch for " + id +
+                            ": " + old.declaredType.getSimpleName() + " vs " + t.getSimpleName());
+                env.put(id, cellOf(v,
+                        old.dynamic ? t : old.declaredType,
+                        true,
+                        old.dynamic));
+            } else { // first declaration
+                env.put(id, cellOf(v, t, mutable, isDynamic));
+                if (!mutable) immutable.add(id);
+            }
         }
+    }
+
+
+    private static Class<?> tokenToClass(String tok) {
+        return switch (tok) {
+            case "int" -> Integer.class;
+            case "float" -> Float.class;
+            case "double" -> Double.class;
+            case "boolean" -> Boolean.class;
+            case "char" -> Character.class;
+            case "String" -> String.class;
+            default -> Object.class;
+        };
     }
 
 
@@ -67,24 +95,26 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitClassDecl(MinJParser.ClassDeclContext ctx) {
-        String className = ctx.ID().getText();
+        String cn = ctx.ID().getText();
         ClassDef def = new ClassDef();
-        classTable.put(className, def);
+        classTable.put(cn, def);
 
+        inClass = true;
+        currentClass = def;
         for (var child : ctx.classBody().children) {
             if (child instanceof MinJParser.FieldDeclContext f) {
                 String name = f.varDecl().idList().ID(0).getText();
-                def.fields.put(name, /* default null for now */ null);
+                def.fields.put(name, cellOf(null, Object.class, true, true));
             } else if (child instanceof MinJParser.MethodDeclContext m) {
-                String name = m.ID().getText();
-                def.methods.put(name, m);
+                def.methods.put(m.ID().getText(), m);
             } else if (child instanceof MinJParser.StatementContext s) {
-                visit(s);
+                visit(s); // static block
             }
         }
+        inClass = false;
+        currentClass = null;
         return null;
     }
-
 
     @Override
     public Object visitMethodDecl(MinJParser.MethodDeclContext ctx) {
@@ -98,32 +128,25 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return null;
     }
 
-
     @Override
     public Object visitVarDecl(MinJParser.VarDeclContext ctx) {
         List<TerminalNode> ids = ctx.idList().ID();
-        boolean isVal = ctx.VAL() != null;
-        boolean mutable = !isVal;
+        boolean isDynamic = ctx.VAR() != null;
+        boolean mutable = ctx.VAL() == null;
 
-        Object rhs = null;
-        if (ctx.ASSIGN() != null) {
+        Object rhs;
+        Class<?> baseType;
+
+        if (ctx.type() != null) {                     // explicit type
+            baseType = tokenToClass(ctx.type().getText());
+            rhs = ctx.ASSIGN() != null ? visit(ctx.expr())
+                    : defaultValue(baseType);
+        } else {                                     // infer from expr
             rhs = visit(ctx.expr());
-        } else {
-            // no initializer → default per first declared type (or 0)
-            String t = ctx.type() != null ? ctx.type().getText() : "int";
-            rhs = defaultValue(t);
+            baseType = rhs.getClass();
         }
 
-        // bind in correct scope
-        Map<String, Object> target =
-                (!inClass && !inMethod) ? globals :
-                        (inClass && !inMethod) ? currentClass.fields :
-                                env;
-        Map<String, Object> oldEnv = env; // temp swap if needed
-        if (target != env) env = target;  // reuse bindIds helper
-        bindIds(ids, rhs, mutable);
-        if (target != oldEnv) env = oldEnv;
-
+        bindIds(ids, rhs, /*reassign=*/false, isDynamic, mutable);
         return null;
     }
 
@@ -141,17 +164,11 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitAssign(MinJParser.AssignContext ctx) {
-        List<TerminalNode> ids = ctx.idList().ID();
-        Object rhs = visit(ctx.expr());
-
-        // immutability check
-        for (TerminalNode idTok : ids) {
-            String id = idTok.getText();
-            if (immutable.contains(id)) {
-                throw new IllegalStateException("Cannot reassign val " + id);
-            }
-        }
-        bindIds(ids, rhs, true);  // always mutable in re-assignment
+        bindIds(ctx.idList().ID(),
+                visit(ctx.expr()),
+                /*reassign=*/true,
+                /*dynamic ignored*/false,
+                /*mutable*/true);
         return null;
     }
 
@@ -193,8 +210,7 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             return switch (ctx.op.getText()) {
                 case "+" -> {
                     if (left instanceof String || right instanceof String ||
-                            left instanceof Character || right instanceof Character)
-                    {
+                            left instanceof Character || right instanceof Character) {
                         yield String.valueOf(left) + String.valueOf(right);
                     }
 
@@ -375,20 +391,23 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     }
 
 
-    // === Method calls on an object: primary DOT callExpr ===
+    /**
+     * primary '.' ID '(' argList? ')'
+     */
     @Override
     public Object visitDotCallExpr(MinJParser.DotCallExprContext ctx) {
-        // 1) Evaluate the receiver object
+        /* 1. receiver object */
         Obj receiver = (Obj) visit(ctx.primary());
 
-        // 2) Get the method name from the ID in this alternative
+        /* 2. look-up method inside the receiver’s class */
         String methodName = ctx.ID().getText();
-        MinJParser.MethodDeclContext mdecl = receiver.def.methods.get(methodName);
-        if (mdecl == null) {
-            throw new IllegalStateException("No method " + methodName + " on " + receiver.def);
-        }
+        MinJParser.MethodDeclContext mdecl =
+                receiver.def.methods.get(methodName);
+        if (mdecl == null)
+            throw new IllegalStateException(
+                    "No method " + methodName + " on that object");
 
-        // 3) Collect arguments from ctx.argList()
+        /* 3. evaluate arguments */
         List<Object> args = new ArrayList<>();
         if (ctx.argList() != null) {
             for (MinJParser.ExprContext e : ctx.argList().expr()) {
@@ -396,33 +415,10 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             }
         }
 
-        // 4) Invoke the method with 'this' bound to the instance
-        Map<String, Object> oldEnv = new HashMap<>(env);
-        boolean oldInMethod = inMethod;
-        inMethod = true;
-
-        env.clear();
-        env.put("this", receiver);
-
-        // bind parameters
-        if (mdecl.paramList() != null) {
-            List<String> params = mdecl.paramList().ID().stream()
-                    .map(TerminalNode::getText)
-                    .toList();
-            for (int i = 0; i < params.size(); i++) {
-                env.put(params.get(i), args.get(i));
-            }
-        }
-
-        // execute the method body
-        visitBlock(mdecl.block());
-
-        // 5) Restore the previous environment
-        env.clear();
-        env.putAll(oldEnv);
-        inMethod = oldInMethod;
-
-        return null;
+    /* 4. delegate to the central helper.
+           It returns the single value, the list of values,
+           or null if the method returned nothing.            */
+        return invokeMethod(methodName, mdecl, args, receiver);
     }
 
 
@@ -447,114 +443,161 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return null;
     }
 
+    /* ────────────────────────────────────────────────
+       for i = … to upper [step …] do: … end
+       ──────────────────────────────────────────────── */
     @Override
     public Object visitForStmt(MinJParser.ForStmtContext ctx) {
-        // 1. Initialize the loop variable (either varDecl or assign)
+
+        /* 1 ░ initialise loop variable (varDecl | assign) */
         String varName;
         if (ctx.varDecl() != null) {
-            MinJParser.VarDeclContext vdc = ctx.varDecl();
-            varName = vdc.idList().ID(0).getText();
-            visit(vdc);
+            visit(ctx.varDecl());                          // executes binding
+            varName = ctx.varDecl().idList().ID(0).getText();
         } else {
             MinJParser.AssignContext init = ctx.assign().getFirst();
-            varName = init.idList().ID(0).getText();
             visit(init);
+            varName = init.idList().ID(0).getText();
         }
 
-        // 2. Evaluate the loop upper bound
+        /* 2 ░ upper-bound */
         Number upper = (Number) visit(ctx.expr());
 
-        // 3. Determine if the user supplied an explicit STEP assignment
+        /* 3 ░ optional step */
         MinJParser.AssignContext stepCtx = null;
-        if (ctx.assign().size() > 1) {
-            // if we used assign(0) for init, then step is assign(1)
-            stepCtx = ctx.assign().get(1);
-        } else if (ctx.assign().size() == 1 && ctx.varDecl() != null) {
-            // init was varDecl, so the sole assign is the STEP
+        if (ctx.assign().size() > 1) stepCtx = ctx.assign().get(1);
+        else if (ctx.assign().size() == 1 && ctx.varDecl() != null)
             stepCtx = ctx.assign().getFirst();
-        }
-        boolean hasStep = stepCtx != null;
 
-        // 4. Loop
+        /* 4 ░ loop */
         while (true) {
-            Number current = (Number) env.get(varName);
-            if (current.doubleValue() > upper.doubleValue()) {
-                break;
-            }
 
-            // body
-            visitBlock(ctx.block());
+            Cell c = resolveCell(varName);           // current boxed value
+            Number cur = (Number) c.value;
+            if (cur.doubleValue() > upper.doubleValue()) break;
 
-            // advance: either user step or default +1
-            if (hasStep) {
-                visit(stepCtx);
-            } else {
-                // default increment by 1
-                if (current instanceof Integer) {
-                    env.put(varName, current.intValue() + 1);
-                } else {
-                    env.put(varName, current.doubleValue() + 1.0);
-                }
+            visitBlock(ctx.block());                      // body
+
+            /* advance counter */
+            if (stepCtx != null) {                        // user-supplied
+                visit(stepCtx);                           // re-binds varName
+            } else {                                      // implicit +1
+                Number next = (cur instanceof Integer)
+                        ? cur.intValue() + 1
+                        : cur.doubleValue() + 1.0;
+                /* overwrite entry with fresh Cell (same typing info) */
+                env.put(varName, cellOf(next,
+                        c.declaredType,
+                        c.mutable,
+                        c.dynamic));
             }
         }
-
         return null;
     }
 
-
+    /* ────────────────────────────────────────────────
+       foreach x in list do: … end
+       ──────────────────────────────────────────────── */
     @Override
     public Object visitForeachStmt(MinJParser.ForeachStmtContext ctx) {
+
         String loopVar = ctx.ID().getText();
+        Object colObj = visit(ctx.expr());               // evaluated container
 
-        // Instead of visit(ctx.expr()), grab the raw text of the `in`-expression:
-        String collectionName = ctx.expr().getText();
-        Object coll = env.get(collectionName);
+        if (!(colObj instanceof List<?> list))
+            throw new IllegalArgumentException("Cannot iterate over " + colObj);
 
-        if (!(coll instanceof List<?>)) {
-            throw new IllegalArgumentException("Cannot iterate over " + coll);
-        }
+        /* create (or shadow) a mutable dynamic cell for the loop variable */
+        env.put(loopVar, cellOf(null, Object.class, true, true));
 
-        for (Object item : (List<?>) coll) {
-            if (immutable.contains(loopVar)) {
-                throw new IllegalStateException("Cannot reassign val " + loopVar);
-            }
-            env.put(loopVar, item);
-            // visit the block under the `do:`
+        for (Object item : list) {
+            env.put(loopVar, cellOf(item, item.getClass(), true, true));
             visit(ctx.block());
         }
         return null;
     }
 
-    private Object defaultValue(String typeName) {
-        return switch (typeName) {
-            case "int" -> 0;
-            case "float" -> 0.0f;
-            case "double" -> 0.0;
-            case "boolean" -> false;
-            case "char" -> '\0';
-            default -> "";
-        };
+
+    private Object defaultValue(Class<?> t) {
+        if (t == Integer.class) return 0;
+        if (t == Float.class) return 0f;
+        if (t == Double.class) return 0.0;
+        if (t == Boolean.class) return false;
+        if (t == Character.class) return '\0';
+        return "";
+    }
+
+    /**
+     * Resolve a variable name and return its *value* (not the Cell).
+     */
+    private Object resolve(String name) {
+
+        /* 1 ─ local scope .......................................... */
+        Cell c = env.get(name);
+        if (c != null) return c.value;
+
+        /* 2 ─ field of  this  inside a method ...................... */
+        if (inMethod) {
+            Cell thisCell = env.get("this");
+            if (thisCell != null) {
+                Obj thiz = (Obj) thisCell.value;          // <-- unwrap first
+                Cell field = thiz.fields.get(name);
+                if (field != null) return field.value;
+            }
+        }
+
+        /* 3 ─ global ............................................... */
+        Cell g = globals.get(name);
+        if (g != null) return g.value;
+
+        throw new IllegalStateException("Undefined variable: " + name);
+    }
+
+
+    /**
+     * Get the Cell for a name (locals → this-fields → globals).
+     */
+    private Cell resolveCell(String name) {
+
+        /* locals */
+        if (env.containsKey(name))
+            return env.get(name);
+
+        /* inside a method: check fields of   this   */
+        if (inMethod && env.containsKey("this")) {
+            Object holder = env.get("this");           // <- Cell, not Obj
+            Obj thiz = holder instanceof Cell c        // unwrap if needed
+                    ? (Obj) c.value
+                    : (Obj) holder;
+            Cell field = thiz.fields.get(name);
+            if (field != null) return field;
+        }
+
+        /* globals */
+        Cell g = globals.get(name);
+        if (g != null) return g;
+
+        throw new IllegalStateException("Undefined variable " + name);
+    }
+
+    /* ── inside EvalVisitor ──────────────────────────────── */
+    static class ClassDef {
+        /**
+         * private fields (name → Cell)
+         */
+        final Map<String, Cell> fields = new HashMap<>();
+        final Map<String, MinJParser.MethodDeclContext> methods = new HashMap<>();
     }
 
     static class Obj {
         final ClassDef def;
-        final Map<String, Object> fields = new HashMap<>();
+        final Map<String, Cell> fields = new HashMap<>();
 
         Obj(ClassDef d) {
             def = d;
-            fields.putAll(d.fields);
+            d.fields.forEach((k, c) -> fields.put(k,
+                    cellOf(c.value, c.declaredType, c.mutable, c.dynamic)));
         }
-    }
-
-
-    private Object resolve(String name) {
-        if (env.containsKey(name)) return env.get(name);          // local
-        if (inMethod && env.containsKey("this")) {   // inside a method → check fields
-            Obj thiz = (Obj) env.get("this");
-            if (thiz.fields.containsKey(name)) return thiz.fields.get(name);
-        }
-        if (globals.containsKey(name)) return globals.get(name);      // public global
-        throw new IllegalStateException("Undefined variable: " + name);
     }
 
 
@@ -575,53 +618,67 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
      * @param args     evaluated arguments
      * @param receiver the Obj on which to call it, or null for a global method
      */
+    /* ──────────────────────────────────────────────────────────────
+   Invoke either a global or an instance method.
+   ───────────────────────────────────────────────────────────── */
     private Object invokeMethod(String name,
                                 MinJParser.MethodDeclContext decl,
                                 List<Object> args,
                                 Obj receiver) {
-        // save
-        Map<String, Object> oldEnv = new HashMap<>(env);
+
+        /* ──  save caller scope  ─────────────────────────────────── */
+        Map<String, Cell> oldEnv = new HashMap<>(env);
         Set<String> oldImm = new HashSet<>(immutable);
-        boolean wasInMethod = inMethod;
+        boolean wasIn = inMethod;
 
-        env.clear();
-        immutable.clear();
+        env = new HashMap<>();           // fresh local frame
+        immutable = new HashSet<>();
         inMethod = true;
-        if (receiver != null) env.put("this", receiver);
 
-        // bind parameters
+        /* 1 ░ implicit  this  for instance methods */
+        if (receiver != null) {
+            env.put("this",
+                    new Cell(receiver,              // value
+                            Obj.class,             // declared type
+                            false,                 // mutable?  no
+                            false));               // dynamic?  no
+        }
+
+        /* 2 ░ bind parameters */
         if (decl.paramList() != null) {
             List<String> params = decl.paramList().ID()
                     .stream()
                     .map(TerminalNode::getText)
                     .toList();
+
             for (int i = 0; i < params.size(); i++) {
-                env.put(params.get(i), args.get(i));
+                Object arg = args.get(i);
+                Class<?> typ = (arg == null) ? Object.class : arg.getClass();
+
+                env.put(params.get(i),
+                        new Cell(arg, typ, true, false));   // mutable local, static type
             }
         }
 
-        // execute + capture return
+        /* 3 ░ execute body + capture return */
         Object result = null;
         try {
             visitBlock(decl.block());
         } catch (ReturnSignal r) {
-            if (r.values.isEmpty()) {
-                result = null;
-            } else if (r.values.size() == 1) {
-                result = r.values.getFirst();
-            } else {
-                result = r.values;   // multi-value returns as List<Object>
-            }
+            result = switch (r.values.size()) {
+                case 0 -> null;
+                case 1 -> r.values.getFirst();
+                default -> r.values;          // multi-value => List<Object>
+            };
         }
 
-        // restore
-        env.clear();
-        env.putAll(oldEnv);
-        immutable.clear();
-        immutable.addAll(oldImm);
-        inMethod = wasInMethod;
+        /* 4 ░ restore caller scope */
+        env = oldEnv;
+        immutable = oldImm;
+        inMethod = wasIn;
         return result;
     }
+
 
     /**
      * Convenience wrapper for global functions.
@@ -640,4 +697,16 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
             values = v;
         }
     }
+
+    record Cell(Object value,
+                Class<?> declaredType,  // never null
+                boolean mutable,        // false for val
+                boolean dynamic) {
+    }
+
+    private static Cell cellOf(Object v, Class<?> t, boolean mutable, boolean dynamic) {
+        return new Cell(v, t, mutable, dynamic);
+    }
+
+
 }
