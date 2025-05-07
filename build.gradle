@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.conava'
-version = '0.3.0'
+version = '0.3.1'
 
 repositories {
     mavenCentral()
@@ -16,7 +16,6 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     antlr "org.antlr:antlr4:4.13.0"               // ANTLR tool for codegen
     implementation "org.antlr:antlr4-runtime:4.13.0"  // ANTLR runtime for parser
-    //implementation 'com.squareup:javapoet:1.13.0' may be needed for code generation
 }
 
 tasks.named('generateGrammarSource', AntlrTask) {
