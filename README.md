@@ -316,8 +316,12 @@ print d  // true
 ```js
 class Counter:
     var count = 0
-    method inc(): count = count + 1 end
-    method get(): return count end
+    method inc(): 
+        count = count + 1 
+    end
+    method get(): 
+        return count 
+    end
 end
 
 var c = new Counter()
@@ -329,13 +333,17 @@ print c.get()   // 1
 
 ```js
 func factorial(n):
-    if n <= 1 then: return 1 end
+    if n <= 1 then: 
+        return 1 
+    end
     return n * factorial(n - 1)
 end
 
 func factLoop(n):
     var r = 1
-    for i = 1 to n do: r = r * i end
+    for i = 1 to n do: 
+        r = r * i 
+    end
     return r
 end
 
