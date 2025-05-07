@@ -1,3 +1,10 @@
 // Example 1: Hello World
-// The classic first program—prints a line to stdout.
-print "Hello, World!"
+
+print "Hello World!"
+
+String greeting = "Hello, MinJ!"
+print greeting
+
+var name = "MinJ"
+print "Please welcome JavaScript's worst nightmare, " + name + "!"
+print "The real programming Language that introduces scripting in the JVM"

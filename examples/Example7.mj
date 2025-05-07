@@ -10,3 +10,17 @@ greet("Bob")
 
 // Uncommenting last call before definition should error
 // sayBye("Charlie")
+
+// Example 8: Defining and calling local methods
+class Example8:
+    method sayHello(name):
+        print "Hello, " + name + "!"
+    end
+end
+
+// If Top-level (stray) code calls the function before definition, it should error
+// sayHello("Alice")
+
+// Initializing an instance of Example8
+var example8 = new Example8()
+example8.sayHello("Marlon")

@@ -1,4 +1,4 @@
-// Example 2: Variables, `var` vs `val`, and default initialization
+// Example 2: Variables, `var` vs `val`
 
 // `var` can be reassigned; `val` is immutable.
 var a = 10
@@ -11,5 +11,18 @@ print "b = " + b
 a = 20
 print "a now = " + a
 
+// Or even to a different type:
+a = "Hello"
+print "a now = " + a
+
 // Uncommenting the next line should error: cannot reassign `val`
 // b = "oops"
+
+// Uncommenting the next line should error: `c` is not initialized
+// print "c = " + c
+
+// `var` can be declared without initialization
+var c
+// `c` can be initialized later
+c = 30
+print "c = " + c

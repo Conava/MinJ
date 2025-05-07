@@ -1,18 +1,62 @@
-// Example 6: Lists and `foreach`
+// ────────────────────────────
+// Example 6: Operators Demo
+// ────────────────────────────
 
-var nums = [1, 2, 3, 4, 5]
-print "Numbers:"
-foreach n in nums do:
-    print n
-end
+// Integer vs. floating semantics
+var i1 = 7
+var i2 = 3
 
-// Sum the elements
-var total = 0
-foreach n in nums do:
-    total = total + n
-end
-print "Sum = " + total
+print "Integer operations:"
+print "i1 + i2 = "  + (i1 + i2)    // 10
+print "i1 - i2 = "  + (i1 - i2)    // 4
+print "i1 * i2 = "  + (i1 * i2)    // 21
+print "i1 / i2 = "  + (i1 / i2)    // 7/3 => 2 (integer division)
+print "i1 % i2 = "  + (i1 % i2)    // 1
 
-// Empty list edge‐case
-var empty = []
-print "Empty size = " + empty
+print ""
+
+// Floating‑point version
+var f1 = 7.0
+var f2 = 3.0
+
+print "Floating operations:"
+print "f1 + f2 = "  + (f1 + f2)    // 10.0
+print "f1 - f2 = "  + (f1 - f2)    // 4.0
+print "f1 * f2 = "  + (f1 * f2)    // 21.0
+print "f1 / f2 = "  + (f1 / f2)    // ~2.3333
+print "f1 % f2 = "  + (f1 % f2)    // 1.0
+
+print ""
+
+// Comparison operators
+print "Comparisons:"
+print "i1 <  i2? " + (i1 < i2)     // false
+print "i1 <= i2? " + (i1 <= i2)    // false
+print "i1 >  i2? " + (i1 > i2)     // true
+print "i1 >= i2? " + (i1 >= i2)    // true
+print "i1 == i2? " + (i1 == i2)    // false
+print "i1 != i2? " + (i1 != i2)    // true
+
+print ""
+
+// Boolean logic
+var a = true
+var b = false
+
+print "Boolean values: a=" + a + ", b=" + b
+
+// Unary NOT
+print "!a = " + (!a)               // false
+print "!b = " + (!b)               // true
+
+// Binary AND / OR / XOR
+print "a && b = " + (a && b)       // false
+print "a and b = " + (a and b)     // same
+print "a || b = " + (a || b)       // true
+print "a or b = " + (a or b)       // same
+print "a ^ b = " + (a ^ b)         // true
+print "a xor b = " + (a xor b)     // same
+
+// Combined logic
+var c = (i1 > i2) && (f1 / f2 > 2.0)
+print "c = (i1>i2) && (f1/f2>2.0) = " + c  // true

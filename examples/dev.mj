@@ -1,27 +1,162 @@
-// ───── Recursive factorial using “return” ─────────────────────────
-func factorial(n):
-    if n <= 1 then:
-        return 1
-    else:
-        // n · (n-1)!  ➜  recursive call
-        return n * factorial(n - 1)
-    end
+// ─────────────────────────────────────────────────────────────
+// MinJ Full‑Feature Self‑Test
+// This single script exercises every language feature.
+// Uncomment error cases to verify type/immutability checks.
+// ─────────────────────────────────────────────────────────────
+
+// 1) var (dynamic + mutable)
+var any = 10
+print "any starts as int: " + any
+any = 3.14
+print "any now a double: " + any
+any = "hello"
+print "any now a String: " + any
+// any = true and false // OK: now a boolean
+print "--------------------------------------------"
+
+// 2) explicit typed, default init, mutable but type‑safe
+int i
+print "default int i = " + i
+i = 7
+print "reassigned int i = " + i
+// i = "oops" // ERROR: type mismatch
+print "--------------------------------------------"
+
+// 3) val (immutable constant)
+val PI = 3.14159
+print "PI = " + PI
+// PI = 3.0 // ERROR: cannot reassign val
+print "--------------------------------------------"
+
+// 4) all primitive types
+boolean b = true
+print "boolean b = " + b
+char c = 'Z'
+print "char c = " + c
+float f = 2.5f
+print "float f = " + f
+double d = 1.2e1
+print "double d = " + d
+String s = "MinJ"
+print "String s = " + s
+print "--------------------------------------------"
+
+// 5) arithmetic & comparison
+print "2+3*4 = " + (2 + 3 * 4)
+print "(2+3)*4 = " + ((2 + 3) * 4)
+print "7 % 4 = " + (7 % 4)
+print "5 / 2 = " + (5 / 2) // int division
+print "5.0 / 2 = " + (5.0 / 2) // float division
+print "3 < 5 = " + (3 < 5)
+print "3 == 3 = " + (3 == 3)
+print "--------------------------------------------"
+
+// 6) boolean operators
+var p = true and false
+var q = true && false
+var r = p or q
+var x = !p || true
+var y = p xor true
+print "p = " + p
+print "q = " + q
+print "r = p or q = " + r
+print "x = !p||true = " + x
+print "y = p xor true = " + y
+print "--------------------------------------------"
+
+// 7) lists & foreach
+var nums = [1,2,3,4,5]
+print "nums list: " + nums
+foreach n in nums do:
+print " n = " + n
+end
+print "--------------------------------------------"
+
+// 8) for … to … step …
+for j = 1 to 7 step j = j + 2 do:
+print "j = " + j
+end
+print "--------------------------------------------"
+
+// 9) while
+var w = 0
+while w < 3 do:
+print "w = " + w
+w = w + 1
+end
+print "--------------------------------------------"
+
+// 10) if/elseif/else
+var t = 5
+if t < 3 then:
+print "t<3"
+elseif t < 6 then:
+print "3<=t<6"
+else:
+print "t>=6"
+end
+print "--------------------------------------------"
+
+// 11) functions, returns, recursion, multi‑return
+func addMul(a,b):
+return a+b, a*b
+end
+var res = addMul(3,4)
+print "addMul returns list: " + res
+foreach v in res do:
+print v
 end
 
+func fact(n):
+if n <= 1 then:
+return 1
+else:
+return n * fact(n-1)
+end
+end
+print "fact(6) = " + fact(6)
 
-// ───── Iterative version (for comparison) ─────────────────────────
-func factLoop(n):
-    var result = 1
-    for i = 1 to n do:
-        result = result * i
-    end
-    return result
+func fib(n):
+if n <= 1 then:
+return n
+end
+return fib(n-1) + fib(n-2)
+end
+print "fib(7) = " + fib(7)
+print "--------------------------------------------"
+
+// 12) classes, methods, fields, constructor pattern
+class Counter:
+var count = 0
+method init(start):
+count = start
+end
+method inc():
+count = count + 1
+end
+method get():
+return count
+end
 end
 
+var ctr = new Counter()
+ctr.init(10)
+ctr.inc()
+ctr.inc()
+print "ctr.get() = " + ctr.get()
+print "--------------------------------------------"
 
-// ───── Top-level driver code ──────────────────────────────────────
-var x = 5
-var rec = factorial(x)      // recursive
-var itr = factLoop(x)       // iterative
-print "factorial(" + x + ") = " + rec
-print "factLoop("  + x + ") = " + itr
+// 13) input()
+print "Enter a word:"
+var line = input()
+print "You typed: " + line
+print "--------------------------------------------"
+
+// 14) nested blocks & scope
+var outer = 100
+if outer == 100 then:
+var inner = 200
+print "inner = " + inner
+end
+// print inner // ERROR: undefined variable
+print "All tests completed."

@@ -17,3 +17,10 @@ end
 
 // Example 5.4: improper `step` syntax should error
 // for k = 1 to 5 step k == k + 1 do: print k end
+
+// Example 5.5: `foreach` loop
+var nums = [1, 2, 3, 4, 5]
+print "nums list: " + nums
+foreach n in nums do:
+    print "n = " + n
+end
