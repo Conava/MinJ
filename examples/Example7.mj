@@ -12,18 +12,15 @@ greet("Bob")
 // sayBye("Charlie")
 
 // Defining and calling local methods
-class Example8:
+class Example:
     method sayHello(name):
         print "Hello, " + name + "!"
     end
 end
 
-// If Top-level (stray) code calls the function before definition, it should error
-// sayHello("Alice")
-
 // Initializing an instance of Example8
-var example8 = new Example8()
-example8.sayHello("Marlon")
+var example = new Example()
+example.sayHello("Marlon")
 
 // Return with 2 values
 func addAndMultiply(a, b):
