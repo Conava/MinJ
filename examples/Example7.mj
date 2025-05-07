@@ -11,7 +11,7 @@ greet("Bob")
 // Uncommenting last call before definition should error
 // sayBye("Charlie")
 
-// Example 8: Defining and calling local methods
+// Defining and calling local methods
 class Example8:
     method sayHello(name):
         print "Hello, " + name + "!"
@@ -24,3 +24,12 @@ end
 // Initializing an instance of Example8
 var example8 = new Example8()
 example8.sayHello("Marlon")
+
+// Return with 2 values
+func addAndMultiply(a, b):
+    return a + b, a * b
+end
+
+var sum, product = addAndMultiply(3, 4)
+print "Sum: " + sum
+print "Product: " + product
