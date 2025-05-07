@@ -9,7 +9,7 @@ options { language = Java; }
 // === Parser Rules ===
 
 program
-    : (topLevelDecl NEWLINE)*
+    : (topLevelDecl? NEWLINE)*
     topLevelDecl?
     EOF
     ;
@@ -117,17 +117,17 @@ exprList
 // 3. <, >, <=, >=, ==, !=
 // 4. primary (literals, IDs, parenthesis)
 expr
-    : '!' expr
-    | '-' expr
-    | expr op=('*'|'/') expr
-    | expr op=MOD expr
-    | expr op=('+'|'-') expr
-    | expr op=(LT | GT | LE | GE | EQ | NE) expr
+    : NOT expr
+    | SUB expr
+    | expr op=( MUL | DIV | MOD) expr
+    | expr op=( ADD | SUB ) expr
+    | expr op=( LT | GT | LE | GE | EQ | NE ) expr
+    | expr op=( AND | OR | XOR) expr
     | primary
     ;
 
 listLiteral
-    : '[' (expr (',' expr)*)? ']'
+    : '[' (expr (COMMA expr)*)? ']'
     ;
 
 argList
@@ -196,6 +196,14 @@ GE        : '>=' ;
 EQ        : '==' ;
 NE        : '!=' ;
 MOD       : '%' ;
+ADD       : '+' ;
+SUB       : '-' ;
+MUL       : '*' ;
+DIV       : '/' ;
+AND       : '&&' | 'AND'| 'and' ;
+OR        : '||' | 'OR' | 'or' ;
+XOR       : '^' | 'XOR' | 'xor' ;
+NOT       : '!' | 'NOT' | 'not' ;
 LPAREN    : '(' ;
 RPAREN    : ')' ;
 LBRACK    : '[' ;

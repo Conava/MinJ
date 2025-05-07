@@ -333,6 +333,21 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
                 case ">=" -> ((Number) left).doubleValue() >= ((Number) right).doubleValue();
                 case "==" -> left.equals(right);
                 case "!=" -> !left.equals(right);
+                case "and", "AND", "&&" -> {
+                    if (!(left instanceof Boolean && right instanceof Boolean))
+                        throw new IllegalArgumentException("`and` expects two booleans");
+                    yield (Boolean) left && (Boolean) right;
+                }
+                case "xor", "XOR", "^" -> {
+                    if (!(left instanceof Boolean && right instanceof Boolean))
+                        throw new IllegalArgumentException("`xor` expects two booleans");
+                    yield (Boolean) left ^ (Boolean) right;
+                }
+                case "or", "OR", "||" -> {
+                    if (!(left instanceof Boolean && right instanceof Boolean))
+                        throw new IllegalArgumentException("`or` expects two booleans");
+                    yield (Boolean) left || (Boolean) right;
+                }
                 default -> null;
             };
         }
