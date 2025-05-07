@@ -9,7 +9,7 @@ options { language = Java; }
 // === Parser Rules ===
 
 program
-    : (topLevelDecl? NEWLINE)*
+    : (topLevelDecl NEWLINE)*
     topLevelDecl?
     EOF
     ;
@@ -117,7 +117,9 @@ exprList
 // 3. <, >, <=, >=, ==, !=
 // 4. primary (literals, IDs, parenthesis)
 expr
-    : expr op=('*'|'/') expr
+    : '!' expr
+    | '-' expr
+    | expr op=('*'|'/') expr
     | expr op=MOD expr
     | expr op=('+'|'-') expr
     | expr op=(LT | GT | LE | GE | EQ | NE) expr
@@ -178,12 +180,12 @@ VAR         : 'var' ;
 VAL         : 'val' ;
 
 // Types
-INT_TYPE        : 'int' ;
-FLOAT_TYPE      : 'float' ;
-DOUBLE_TYPE     : 'double' ;
-BOOLEAN_TYPE    : 'boolean' ;
-CHAR_TYPE       : 'char' ;
-STRING_TYPE     : 'String' ;
+INT_TYPE        : 'int' | 'integer' | 'Int' | 'Integer' ;
+FLOAT_TYPE      : 'float' | 'Float' ;
+DOUBLE_TYPE     : 'double' | 'Double' ;
+BOOLEAN_TYPE    : 'boolean' | 'Boolean' | 'bool' | 'Bool' ;
+CHAR_TYPE       : 'char' | 'Char' ;
+STRING_TYPE     : 'String' | 'string' ;
 
 // Operators & Punctuation
 ASSIGN    : '=' ;

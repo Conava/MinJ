@@ -2,6 +2,11 @@ package com.conava;
 
 import java.util.*;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import com.conava.MinJBaseVisitor;
@@ -57,12 +62,12 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     private static Class<?> tokenToClass(String tok) {
         return switch (tok) {
-            case "int" -> Integer.class;
-            case "float" -> Float.class;
-            case "double" -> Double.class;
-            case "boolean" -> Boolean.class;
-            case "char" -> Character.class;
-            case "String" -> String.class;
+            case "int", "integer", "Int", "Integer" -> Integer.class;
+            case "float", "Float" -> Float.class;
+            case "double", "Double" -> Double.class;
+            case "boolean", "bool", "Boolean", "Bool" -> Boolean.class;
+            case "char", "Char" -> Character.class;
+            case "String", "string" -> String.class;
             default -> Object.class;
         };
     }
@@ -261,6 +266,24 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
 
     @Override
     public Object visitExpr(MinJParser.ExprContext ctx) {
+        // unary operators come in as a single-child expr with no ctx.op
+        if (ctx.op == null && ctx.expr().size() == 1) {
+            String op = ctx.getChild(0).getText();
+            Object v = visit(ctx.expr(0));
+            switch (op) {
+                case "!" -> {
+                    if (!(v instanceof Boolean b))
+                        throw new IllegalArgumentException("! expects boolean");
+                    return !b;
+                }
+                case "-" -> {
+                    if (v instanceof Integer i) return -i;
+                    if (v instanceof Number n) return -n.doubleValue();
+                    throw new IllegalArgumentException("Cannot negate " + v);
+                }
+            }
+        }
+
         if (ctx.op != null) {
             Object left = visit(ctx.expr(0));
             Object right = visit(ctx.expr(1));
@@ -373,8 +396,15 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
     // === Primary-level function call  ID '(' argList? ')'  ===
     @Override
     public Object visitCallExprPrimary(MinJParser.CallExprPrimaryContext ctx) {
-        // exactly the same handling as in visitCallExpr
         String name = ctx.ID().getText();
+        if (name.equals("input")) {
+            String prompt = null;
+            if (ctx.argList() != null && !ctx.argList().expr().isEmpty()) {
+                prompt = String.valueOf(visit(ctx.argList().expr(0)));
+            }
+            return readLine(prompt);
+        }
+        name = ctx.ID().getText();
         MinJParser.MethodDeclContext decl = globalMethods.get(name);
         if (decl == null) {
             throw new IllegalStateException("Unknown function: " + name);
@@ -757,5 +787,20 @@ public class EvalVisitor extends MinJBaseVisitor<Object> {
         return new Cell(v, t, mutable, dynamic);
     }
 
+    private String readLine(String prompt) {
+        // if the user supplied their own prompt text, show it first
+        if (prompt != null && !prompt.isEmpty()) {
+            System.out.print(prompt + " ");
+        }
+        // then always show “> ” to indicate you’re waiting for input
+        System.out.print("> ");
+        System.out.flush();
+
+        try {
+            return new BufferedReader(new InputStreamReader(System.in)).readLine();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
 }
