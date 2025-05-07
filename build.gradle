@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.conava'
-version = '0.2.0-Alpha'
+version = '0.3.0'
 
 repositories {
     mavenCentral()
