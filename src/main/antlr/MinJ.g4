@@ -186,6 +186,7 @@ BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 // Keywords
 RETURN      : 'return' ;
 CLASS       : 'class' ;
+NEW         : 'new' ;
 METHOD      : 'method' ;
 FUNC        : 'func' ;
 PRINT       : 'print' ;

@@ -6,6 +6,33 @@ MinJ currently supports variable declarations (var and val), arithmetic and comp
 
 MinJ is built using Gradle with the ANTLR plugin and ShadowJar for packaging a standalone fat‑JAR. To use the language yourself: simply download the release and execute your scripts via `java -jar minjc-<VERSION>.jar <yourfile>.mj`. A comprehensive CI/CD pipeline on GitHub Actions ensures that every change is validated, tested, and packaged automatically for reliable releases.
 
+**Key Features**
+- **Statically‑typed declarations** with `int`, `String`, `boolean`, etc., plus **dynamic** variables via `var` and **immutable** constants via `val`.
+- **Rich expression syntax**: arithmetic, comparisons, boolean operators (`&&`/`and`, `||`/`or`, `^`/`xor`, `!`/`not`).
+- **Control flow**: `if`/`elseif`/`else`, `while`, `for … to … [step …]`, `foreach … in …`.
+- **First‑class lists**: literal syntax `[1,2,3]` and iteration with `foreach`.
+- **Functions & methods**: global `func`/`method`, instance methods, `new`‑based object creation, `return`.
+- **Built‑in I/O**: `print(...)` and `input(...)` for interactive prompts.
+- **Error checking**: static vs. dynamic type enforcement, immutability (`val`) violations, undefined‑name errors.
+- **Extensible grammar**: modular ANTLR4 `.g4` grammar with clearly layered rules (declarations, statements, expressions, primary).
+
+MinJ ships as a standalone “fat‑JAR” built with Gradle and the ANTLR plugin. Every commit runs through a CI/CD pipeline (GitHub Actions) that regenerates the parser, runs the full test suite (unit tests, self‑test scripts), and publishes versioned releases.
+
+## Quickstart
+
+1. **Download** the latest release: https://github.com/Conava/MinJ/releases
+2. **Unzip** the archive.
+3. **Run** the interpreter:
+
+   ```bash 
+    java -jar minjc-<VERSION>.jar <yourfile>.mj
+    ```
+    Replace `<VERSION>` with the actual version number and `<yourfile>` with your MinJ script.
+
+4. **Explore** the examples in the `examples` directory to see MinJ in action.
+
+5. **Write** your own MinJ scripts using the provided grammar as a reference.
+
 ## 📦 Development Requirements
 
 * JDK 21 (or adjust Gradle toolchain to your installed JDK)
@@ -37,156 +64,288 @@ For grammar development and live parse tree visualization, it's recommended to u
 
 ## 📝 Grammar Overview
 
-Below is an in-depth look at the MinJ grammar defined in `src/main/antlr/MinJ.g4`, followed by illustrative code snippets. This grammar is processed by ANTLR to generate a rich parse tree and a visitor API; we then implement a custom `EvalVisitor` to traverse the AST-like structure for execution. The modular grammar ensures clear separation of syntax, semantics, and evaluation logic, making MinJ highly extensible and easy to debug.
+Below is an in-depth look at the MinJ grammar defined in `src/main/antlr/MinJ.g4`, annotated with extensive explanations. Wherever a code‑block would normally begin or end with triple backticks (```), you'll see the marker **```** instead.
 
 ---
 
-### 1. Top-Level Structure
+### 1. Top‑Level Structure
 
-```antlr
-program
-: (statement? NEWLINE)*    // zero or more lines (statements or blanks)
-statement?               // optional last statement without trailing newline
-EOF
-;
+**Grammar snippet**  
+
+```antlrv4
+program  
+: (topLevelDecl? NEWLINE)*  
+topLevelDecl?  
+EOF  
+;  
 ```
 
-* **program**: one statement per line (allows blank lines), plus an optional final line.
-* **NEWLINE** is `('\r'? '\n')+`, so every physical line break is significant.
+- **program**: a sequence of zero or more lines, each optionally containing a top‑level declaration or statement, followed by EOF.
+- Blank lines are allowed because `topLevelDecl?` can be empty.
+- Every physical line break is matched by **NEWLINE**, so line orientation is significant.
 
 ---
 
-### 2. Statements
+### 2. Declarations & Statements
 
-```antlr
-statement
-: varDecl
-| assign
-| printStmt
-| ifStmt
-| whileStmt
-| forStmt
-| foreachStmt
-;
+#### 2.1 Top‑Level Declarations
+
+**Grammar snippet**  
+
+```antlrv4
+topLevelDecl  
+: classDecl  
+| methodDecl  
+| statement  
+;  
 ```
 
-| Rule            | Syntax                                                              | Example                       |
-|-----------------|---------------------------------------------------------------------|-------------------------------|
-| **varDecl**     | `(type \| VAR \| VAL) ID (ASSIGN expr)?`                            | `var x = 10``int i`           |
-| **assign**      | `ID ASSIGN expr`                                                    | `x = x + 1`                   |
-| **printStmt**   | `PRINT expr`                                                        | `print "Hello"`               |
-| **ifStmt**      | `IF expr THEN COLON block (ELSEIF…)* (ELSE…)? END`                  | see below                     |
-| **whileStmt**   | `WHILE expr DO COLON block END`                                     | `while n < 5 do: … end`       |
-| **forStmt**     | `FOR (varDecl \| assign) TO expr (STEP assign)? DO COLON block END` | see below                     |
-| **foreachStmt** | `FOREACH ID IN expr DO COLON block END`                             | `foreach n in nums do: … end` |
+- **classDecl**: defines a class, its fields and methods.
+- **methodDecl**: defines a standalone (global) function or a method inside a class.
+- **statement**: any executable line (variable declaration, assignment, control flow, etc.).
 
----
+#### 2.2 Variable Declarations
 
-### 3. Expression Grammar
+**Grammar snippet**  
 
-```antlr
-expr
-: expr op=('*'|'/''|'%') expr
-| expr op=('+'|'-') expr
-| expr op=(LT|GT|LE|GE|EQ|NE) expr
-| primary
-;
+```antlrv4
+varDecl  
+: (type | VAR | VAL) idList (ASSIGN expr)?  
+;  
+idList  
+: ID (COMMA ID)*  
+;  
+type  
+: INT_TYPE | FLOAT_TYPE | DOUBLE_TYPE | BOOLEAN_TYPE | CHAR_TYPE | STRING_TYPE  
+;  
 ```
 
-Operator precedence (high → low):
+- **type** may be any built‑in type keyword (e.g. `int`, `String`, `bool`).
+- **VAR** introduces a dynamically‑typed mutable variable.
+- **VAL** introduces an immutable constant (single assignment).
+- You may declare multiple names at once: `var x, y = 3`.
 
-1. `*` `/` `%`
-2. `+` `-`
-3. `<` `>` `<=` `>=` `==` `!=`
-4. **primary**
+#### 2.3 Assignment & Print
 
----
+**Grammar snippet**  
 
-### 4. Primary Values & Literals
-
-```antlr
-primary
-: INT
-| FLOAT_LIT
-| DOUBLE_LIT
-| STRING
-| CHAR
-| BOOL_LIT
-| ID
-| LPAREN expr RPAREN
-| listLiteral
+```antlrv4
+assign  
+: idList ASSIGN expr  
 ;
+
+printStmt
+: PRINT expr  
+;  
 ```
 
-* **INT**: `[0-9]+`
-* **FLOAT\_LIT**: `[0-9]+ '.' [0-9]+ [fF]`
-* **DOUBLE\_LIT**: `[0-9]+ '.' [0-9]+ ([eE][+-]?[0-9]+)?`
-* **STRING**: `" ... "` with `\"` escapes
-* **CHAR**: `'\0'`, `'\n'`, etc.
-* **BOOL\_LIT**: `true` | `false`
-* **ID**: `[a-zA-Z_][a-zA-Z_0-9]*`
-* **listLiteral**: `'[' (expr (',' expr)*)? ']'`
+- **assign** covers both re‑assignment and initial assignment of existing names.
+- **printStmt** is a built‑in for console output.
 
 ---
 
-### 5. Lexer Highlights
+### 3. Control‑Flow Constructs
 
-```antlr
-NEWLINE      : '\r'? '\n' ;
-WS           : [ \t]+               -> skip ;
-LINE_COMMENT : '//' ~[\r\n]*        -> skip ;
-HASH_COMMENT : '#'  ~[\r\n]*        -> skip ;
-BLOCK_COMMENT: '/*' .*? '*/'        -> skip ;
+#### 3.1 Conditional
 
-COMMA        : ',' ;
-MOD          : '%'  ;
+**Grammar snippet**  
 
-// Keywords
-PRINT  : 'print' ;
-IF     : 'if' ;
-...            // then/elseif/else/while/for/etc.
+```antlrv4
+ifStmt  
+: IF expr THEN COLON block  
+(ELSEIF expr THEN COLON block)*  
+(ELSE COLON block)?  
+END  
+;  
+block  
+: (statement? NEWLINE)*  
+;  
+```
 
-// Operators
-ASSIGN : '=' ;
-LT     : '<' ;
-...            // <=, >=, ==, !=
-COLON  : ':' ;
-LPAREN : '(' ; RPAREN : ')' ;
-LBRACK : '[' ; RBRACK : ']' ;
+- **IF … THEN** opens a branch; **ELSEIF** and **ELSE** are optional.
+- Terminated by **END**.
+- **block** represents an indented group of statements (you may leave lines blank).
+
+#### 3.2 Loops
+
+**While**  
+
+```antlrv4
+whileStmt  
+: WHILE expr DO COLON block END  
+;  
+```
+
+**For**  
+
+```antlrv4 
+forStmt  
+: FOR (varDecl | assign) TO expr (STEP assign)? DO COLON block END  
+;  
+```
+
+**Foreach**  
+
+```antlrv4
+foreachStmt  
+: FOREACH ID IN expr DO COLON block END  
+;  
+```
+
+- **while** loops test before each iteration.
+- **for** loops support an initial declaration or assignment, an upper bound, an optional `step`, then a body.
+- **foreach** iterates over lists.
+
+---
+
+### 4. Expressions
+
+Operator precedence (highest → lowest):
+
+1. **Unary**: `!` (NOT), `-` (negation)
+2. **Multiplicative**: `*` `/` `%`
+3. **Additive**: `+` `-`
+4. **Relational**: `<` `>` `<=` `>=` `==` `!=`
+5. **Logical**: `&&`/`and`, `||`/`or`, `^`/`xor`
+6. **Primary** values
+
+**Grammar snippet**  
+```antlrv4
+expr  
+: NOT expr                      // unary NOT  
+| SUB expr                      // unary minus  
+| expr op=(MUL|DIV|MOD) expr    // *,/, %  
+| expr op=(ADD|SUB) expr        // +, -  
+| expr op=(LT|GT|LE|GE|EQ|NE) expr  // comparisons  
+| expr op=(AND|OR|XOR) expr     // boolean ops  
+| primary                       // literals, names, calls  
+;  
+```
+
+---
+
+### 5. Primary & Literals
+
+**Grammar snippet**  
+```antlrv4
+primary  
+: NEW ID LPAREN RPAREN             # NewExpr  
+| ID LPAREN argList? RPAREN        # CallExprPrimary  
+| primary DOT ID LPAREN argList? RPAREN  # DotCallExpr  
+| INT                              # IntLiteral  
+| FLOAT_LIT                        # FloatLiteral  
+| DOUBLE_LIT                       # DoubleLiteral  
+| STRING                           # StringLiteral  
+| CHAR                             # CharLiteral  
+| BOOL_LIT                         # BoolLiteral  
+| ID                               # VarReference  
+| LPAREN expr RPAREN               # ParenExpr  
+| listLiteral                      # ListExpr  
+;
+
+listLiteral
+: '[' (expr (COMMA expr)*)? ']'  
+;  
+argList
+: expr (COMMA expr)*  
+;  
+```
+
+- **NEW ID()** constructs a new object.
+- **CallExprPrimary** handles global function calls.
+- **DotCallExpr** handles method calls on instances.
+- **listLiteral** builds a `List<Object>`.
+
+---
+
+### 6. Lexer Rules Highlights
+
+**Grammar snippet**  
+```antlrv4
+NEWLINE      : '\r'? '\n' ;  
+WS           : [ \t]+ -> skip ;  
+LINE_COMMENT : '//' ~[\r\n]* -> skip ;  
+BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
+
+// Keywords  
+IF     : 'if' ;  FOR    : 'for' ;  VAR : 'var' ;  VAL : 'val' ;  …
+
+// Operators/punctuation  
+ASSIGN : '=' ;  LT : '<' ;  EQ : '==' ;  AND : '&&' | 'and' ;  OR : '||' | 'or' ;  …
+
+// Literals  
+INT       : [0-9]+ ;  
+FLOAT_LIT : [0-9]+ '.' [0-9]+ [fF] ;  
+STRING    : '"' (~["\\\r\n] | '\\' .)* '"' ;  
+BOOL_LIT  : 'true' | 'false' ;  
+ID        : [a-zA-Z_] [a-zA-Z_0-9]* ;  
 ```
 
 ---
 
 ## 📚 Examples
 
-### Variable Declaration & Printing
+#### Variable Mutability & Type‑Safety
 
-```minj
-var x = 42
-int y         // default 0
-print x       // 42
-print y       // 0
+```js
+var any = 10
+any = "now a String!"    // OK: var is dynamic
+int n = 5
+// n = "oops"          // ERROR: type mismatch
+val PI = 3.14
+// PI = 3.0            // ERROR: reassign val
 ```
 
-### Conditional: FizzBuzz
+#### Boolean Operators
 
-```minj
-for i = 1 to 20 step i = i + 1 do:
-    if i % 15 == 0 then:
-        print "FizzBuzz"
-    elseif i % 3 == 0 then:
-        print "Fizz"
-    elseif i % 5 == 0 then:
-        print "Buzz"
-    else:
-        print i
-    end
+```js
+Copy
+Edit
+var a = true and false
+var b = true xor true
+var c = a or b
+var d = !a && !b
+print a  // false
+print b  // false
+print c  // false
+print d  // true
+```
+
+#### Classes and Methods
+
+```js
+class Counter:
+    var count = 0
+    method inc(): count = count + 1 end
+    method get(): return count end
 end
+
+var c = new Counter()
+c.inc()
+print c.get()   // 1
+```
+
+#### Recursive and Iterative Factorial 
+
+```js
+func factorial(n):
+    if n <= 1 then: return 1 end
+    return n * factorial(n - 1)
+end
+
+func factLoop(n):
+    var r = 1
+    for i = 1 to n do: r = r * i end
+    return r
+end
+
+print factorial(5)  // 120
+print factLoop(5)   // 120
 ```
 
 ### Lists & foreach
 
-```minj
+```js
 var nums = [1, 2, 3, 4, 5]
 print "Numbers:"
 foreach n in nums do:
@@ -202,7 +361,7 @@ end
 
 ### Nested Blocks
 
-```minj
+```js
 var sum = 0
 while sum < 10 do:
     if sum % 2 == 0 then:
