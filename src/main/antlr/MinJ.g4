@@ -22,7 +22,7 @@ topLevelDecl
 
 classDecl
     : CLASS ID COLON NEWLINE
-    classBody
+        classBody
     END
     ;
 
@@ -36,7 +36,7 @@ fieldDecl
 
 methodDecl
     :(METHOD | FUNC) ID LPAREN paramList? RPAREN COLON
-    block
+        block
     END
     ;
 
@@ -44,10 +44,7 @@ paramList
     : ID (COMMA ID)*
     ;
 
-returnStmt
-    : RETURN exprList
-    ;
-
+// === Statement Rules ===
 statement
     : varDecl
     | assign
@@ -64,6 +61,12 @@ exprStmt
     : expr
     ;
 
+returnStmt
+    : RETURN exprList
+    ;
+
+// === Declaration Rules ===
+
 varDecl
     : (type | VAR | VAL) idList (ASSIGN expr)?
     ;
@@ -73,8 +76,15 @@ idList
     ;
 
 type
-    : INT_TYPE | FLOAT_TYPE | DOUBLE_TYPE | BOOLEAN_TYPE | CHAR_TYPE | STRING_TYPE
+    : INT_TYPE
+    | FLOAT_TYPE
+    | DOUBLE_TYPE
+    | BOOLEAN_TYPE
+    | CHAR_TYPE
+    | STRING_TYPE
     ;
+
+// === Control Flow and Assignment Rules ===
 
 assign
     : idList ASSIGN expr
@@ -84,24 +94,35 @@ printStmt
     : PRINT expr
     ;
 
-
 ifStmt
-    : IF expr THEN COLON block
-    (ELSEIF expr THEN COLON block)*
-    (ELSE COLON block)? END
+    : IF expr THEN COLON
+        block
+    (ELSEIF expr THEN COLON
+        block)*
+    (ELSE COLON
+        block)?
+    END
     ;
 
 whileStmt
-    : WHILE expr DO COLON block END
+    : WHILE expr DO COLON
+        block
+    END
     ;
 
 forStmt
-    : FOR  (varDecl | assign) TO expr (STEP assign)? DO COLON block END
+    : FOR  (varDecl | assign) TO expr (STEP assign)? DO COLON
+        block
+    END
     ;
 
 foreachStmt
-    : FOREACH ID IN expr DO COLON block END
+    : FOREACH ID IN expr DO COLON
+        block
+    END
     ;
+
+// === Block, Grouping and List Rules ===
 
 block
     : (statement? NEWLINE)*
@@ -112,10 +133,13 @@ exprList
     ;
 
 // Expression with precedence:
-// 1. *, /
-// 2. +, -
-// 3. <, >, <=, >=, ==, !=
-// 4. primary (literals, IDs, parenthesis)
+// 1. NOT, SUB
+// 2. *, /, %
+// 3. +, -
+// 4. <, >, <=, >=, ==, !=
+// 5. &&, ||, ^
+// 6. =, +=, -=, *=, /=, %=, &=, |=, ^=
+// 7. anything else
 expr
     : NOT expr
     | SUB expr
@@ -124,14 +148,6 @@ expr
     | expr op=( LT | GT | LE | GE | EQ | NE ) expr
     | expr op=( AND | OR | XOR) expr
     | primary
-    ;
-
-listLiteral
-    : '[' (expr (COMMA expr)*)? ']'
-    ;
-
-argList
-    : expr (COMMA expr)*
     ;
 
 primary
@@ -149,6 +165,14 @@ primary
     | listLiteral                                           # ListExpr
     ;
 
+listLiteral
+    : '[' (expr (COMMA expr)*)? ']'
+    ;
+
+argList
+    : expr (COMMA expr)*
+    ;
+
 // === Lexer Rules ===
 
 NEWLINE      : '\r'? '\n' ;
@@ -159,6 +183,7 @@ LINE_COMMENT : '//' ~[\r\n]* -> skip ;
 HASH_COMMENT : '#'  ~[\r\n]* -> skip ;
 BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 
+// Keywords
 RETURN      : 'return' ;
 CLASS       : 'class' ;
 METHOD      : 'method' ;
@@ -179,7 +204,7 @@ END         : 'end' ;
 VAR         : 'var' ;
 VAL         : 'val' ;
 
-// Types
+// built-in Types
 INT_TYPE        : 'int' | 'integer' | 'Int' | 'Integer' ;
 FLOAT_TYPE      : 'float' | 'Float' ;
 DOUBLE_TYPE     : 'double' | 'Double' ;
@@ -187,36 +212,34 @@ BOOLEAN_TYPE    : 'boolean' | 'Boolean' | 'bool' | 'Bool' ;
 CHAR_TYPE       : 'char' | 'Char' ;
 STRING_TYPE     : 'String' | 'string' ;
 
-// Operators & Punctuation
-ASSIGN    : '=' ;
-LT        : '<' ;
-GT        : '>' ;
-LE        : '<=' ;
-GE        : '>=' ;
-EQ        : '==' ;
-NE        : '!=' ;
-MOD       : '%' ;
-ADD       : '+' ;
-SUB       : '-' ;
-MUL       : '*' ;
-DIV       : '/' ;
-AND       : '&&' | 'AND'| 'and' ;
-OR        : '||' | 'OR' | 'or' ;
-XOR       : '^' | 'XOR' | 'xor' ;
-NOT       : '!' | 'NOT' | 'not' ;
-LPAREN    : '(' ;
-RPAREN    : ')' ;
-LBRACK    : '[' ;
-RBRACK    : ']' ;
-COMMA     : ',' ;
-COLON     : ':' ;
-NEW       : 'new' ;
+
+// operators & punctuation
+EQ    : '==' ;
+NE    : '!=' ;
+LE    : '<=' ;
+GE    : '>=' ;
+AND   : '&&' | 'AND' | 'and' ;
+OR    : '||' | 'OR'  | 'or' ;
+XOR   : '^'  | 'XOR' | 'xor' ;
+ADD   : '+' ;
+SUB   : '-' ;
+MUL   : '*' ;
+DIV   : '/' ;
+MOD   : '%' ;
+NOT   : '!' | 'NOT' | 'not' ;
+LT    : '<' ;
+GT    : '>' ;
+ASSIGN: '=' ;
+
+LPAREN    : '(' ; RPAREN  : ')' ;
+LBRACK    : '[' ; RBRACK  : ']' ;
+COMMA     : ',' ; COLON   : ':' ;
 DOT       : '.' ;
 
-// Literals & Identifier
+// literals & identifiers
 BOOL_LIT  : 'true' | 'false' ;
-CHAR      : '\'' (~['\r\n\\] | '\\' .) '\'' ;
-STRING    : '"' (~["\r\n\\] | '\\' .)* '"' ;
+CHAR      : '\'' (~['\\\r\n] | '\\' .) '\'' ;
+STRING    : '"' (~["\\\r\n] | '\\' .)* '"' ;
 FLOAT_LIT : [0-9]+ '.' [0-9]+ [fF] ;
 DOUBLE_LIT: [0-9]+ '.' [0-9]+ ([eE][+-]?[0-9]+)? ;
 INT       : [0-9]+ ;
