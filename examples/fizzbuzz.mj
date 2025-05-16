@@ -1,5 +1,5 @@
 method fizzbuzz():
-    for i = 0 to 100 step i = i + 1 do:
+    for i = 0 to 100 do:
         if i % 15 == 0 then:
             print "FizzBuzz"
         elseif i % 5 == 0then:
